@@ -1,0 +1,61 @@
+version: '3.8'
+
+# REGISTRATION
+services:
+  registration_svc:
+    container_name: registration_svc
+    build:
+      context: ./registration_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5050:5000"
+    environment:
+      - FLASK_ENV=development
+    depends_on:
+      - users_svc
+
+  users_svc:
+    container_name: users_svc
+    build:
+      context: ./users_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5051:5000"
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@users_db:27017/
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - MONGO_DB_NAME=users_db
+      - MONGO_COLLECTION_NAME=users
+    depends_on:
+      users_db:
+        condition: service_healthy
+
+  users_db:
+    container_name: users_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./users_svc/users_db_data:/data/db
+
+  mongo-express:
+    container_name: mongo-express
+    image: mongo-express:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      - ME_CONFIG_MONGODB_SERVER=users_db
+    depends_on:
+      - users_db
