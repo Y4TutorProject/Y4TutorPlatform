@@ -1,0 +1,50 @@
+{% extends 'base.html' %} {% block content %}
+<div id="room-container">
+  <div id="chat-room-widget">
+    <div id="msgs-container">
+      <ul id="messages"></ul>
+    </div>
+
+
+
+    
+    <div id="message-box">
+      <input type="text" placeholder="Enter your message" id="message-input" name="message" />
+      <button type="submit" id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+  <script type="text/javascript">
+    var socketio = io();
+    socketio.on("message", function (message) { createChatItem(message.message, message.sender) });
+    function createChatItem(message, sender) {
+    console.log("{{rooms}}");
+      var messages = document.getElementById("messages");
+      if (sender === "") {
+        content = `<p class="member-activity">${message}</p>`;
+      } else {
+        var senderIsUser = "{{user}}" === sender;
+        var content = `
+          <li class="message-item ${senderIsUser ? "self-message-item" : "peer-message-item"}">
+                <strong class="${senderIsUser ? "self-message-sender" : "peer-message-sender"}">${sender}</strong>
+                <br />
+              <p>${message}</p>
+              <small class="${senderIsUser ? "muted-text" : "muted-text-white"}">${new Date().toLocaleString()}</small>
+          </li>
+      `;}
+      messages.innerHTML += content;
+    }
+    function sendMessage() {
+      var msgInput = document.getElementById("message-input");
+      if (msgInput.value === "") return;
+      var msg = msgInput.value;
+      socketio.emit("message", { message: msg });
+      msgInput.value = "";
+    }
+  </script>
+  {% for message in messages %}
+  <script type="text/javascript">
+    createChatItem("{{message.message}}", "{{message.sender}}");
+  </script>
+  {% endfor %}
+</div>
+{% endblock %}

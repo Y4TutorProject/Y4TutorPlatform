@@ -1,0 +1,54 @@
+{
+    "users": [
+        {
+            "id": 1,
+            "name": "Alice",
+            "password": "password"
+        },
+        {
+            "id": 2,
+            "name": "Bob",
+            "password": "password"
+        },
+        {
+            "id": 3,
+            "name": "Charlie",
+            "password": "password"
+        },
+        {
+            "id": 4,
+            "name": "Diana",
+            "password": "password"
+        },
+        {
+            "id": 5,
+            "name": "Ethan",
+            "password": "password"
+        },
+        {
+            "id": 6,
+            "name": "Fiona",
+            "password": "password"
+        },
+        {
+            "id": 7,
+            "name": "George",
+            "password": "password"
+        },
+        {
+            "id": 8,
+            "name": "Hannah",
+            "password": "password"
+        },
+        {
+            "id": 9,
+            "name": "Ian",
+            "password": "password"
+        },
+        {
+            "id": 10,
+            "name": "Julia",
+            "password": "password"
+        }
+    ]
+}

@@ -1,0 +1,298 @@
+{
+    "messages": [
+        {
+            "id": 1,
+            "chatId": 1,
+            "senderId": 1,
+            "message": "Hey Bob, how's it going?",
+            "timestamp": "2024-06-01T10:00:00Z"
+        },
+        {
+            "id": 2,
+            "chatId": 1,
+            "senderId": 2,
+            "message": "Hey Alice! I'm good, thanks. How about you?",
+            "timestamp": "2024-06-01T10:05:00Z"
+        },
+        {
+            "id": 3,
+            "chatId": 2,
+            "senderId": 1,
+            "message": "Hi Charlie, long time no see!",
+            "timestamp": "2024-06-02T15:30:00Z"
+        },
+        {
+            "id": 4,
+            "chatId": 2,
+            "senderId": 3,
+            "message": "Hey Alice! Yeah, it's been a while. How have you been?",
+            "timestamp": "2024-06-02T15:35:00Z"
+        },
+        {
+            "id": 5,
+            "chatId": 3,
+            "senderId": 2,
+            "message": "Hey Charlie, want to grab lunch?",
+            "timestamp": "2024-06-03T12:45:00Z"
+        },
+        {
+            "id": 6,
+            "chatId": 3,
+            "senderId": 3,
+            "message": "Sure Bob! Where do you want to go?",
+            "timestamp": "2024-06-03T12:50:00Z"
+        },
+        {
+            "id": 7,
+            "chatId": 1,
+            "senderId": 1,
+            "message": "I am doing well! Are you free to catch up later?",
+            "timestamp": "2024-06-01T10:12:00Z"
+        },
+        {
+            "id": 8,
+            "chatId": 1,
+            "senderId": 2,
+            "message": "Absolutely, I should be free after six.",
+            "timestamp": "2024-06-01T10:18:00Z"
+        },
+        {
+            "id": 9,
+            "chatId": 2,
+            "senderId": 1,
+            "message": "I have been great! We should meet for coffee soon.",
+            "timestamp": "2024-06-02T15:42:00Z"
+        },
+        {
+            "id": 10,
+            "chatId": 2,
+            "senderId": 3,
+            "message": "That sounds perfect. How about next Tuesday?",
+            "timestamp": "2024-06-02T15:48:00Z"
+        },
+        {
+            "id": 11,
+            "chatId": 3,
+            "senderId": 2,
+            "message": "How about the new cafe near the library?",
+            "timestamp": "2024-06-03T12:55:00Z"
+        },
+        {
+            "id": 12,
+            "chatId": 3,
+            "senderId": 3,
+            "message": "The new cafe sounds good to me.",
+            "timestamp": "2024-06-03T13:02:00Z"
+        },
+        {
+            "id": 13,
+            "chatId": 4,
+            "senderId": 1,
+            "message": "Hi Diana, could you review the project outline?",
+            "timestamp": "2024-06-04T09:00:00Z"
+        },
+        {
+            "id": 14,
+            "chatId": 4,
+            "senderId": 4,
+            "message": "Of course, I will look through it this morning.",
+            "timestamp": "2024-06-04T09:10:00Z"
+        },
+        {
+            "id": 15,
+            "chatId": 4,
+            "senderId": 1,
+            "message": "The project notes are ready whenever you are.",
+            "timestamp": "2024-06-04T09:20:00Z"
+        },
+        {
+            "id": 16,
+            "chatId": 5,
+            "senderId": 2,
+            "message": "Are we still meeting for the team barbecue?",
+            "timestamp": "2024-06-05T17:45:00Z"
+        },
+        {
+            "id": 17,
+            "chatId": 5,
+            "senderId": 5,
+            "message": "Yes, I can bring some drinks.",
+            "timestamp": "2024-06-05T17:52:00Z"
+        },
+        {
+            "id": 18,
+            "chatId": 5,
+            "senderId": 5,
+            "message": "I can bring the snacks too.",
+            "timestamp": "2024-06-05T18:10:00Z"
+        },
+        {
+            "id": 19,
+            "chatId": 6,
+            "senderId": 3,
+            "message": "Should we move tomorrow's presentation to the larger room?",
+            "timestamp": "2024-06-06T14:00:00Z"
+        },
+        {
+            "id": 20,
+            "chatId": 6,
+            "senderId": 7,
+            "message": "That would be helpful if it is available.",
+            "timestamp": "2024-06-06T14:12:00Z"
+        },
+        {
+            "id": 21,
+            "chatId": 6,
+            "senderId": 3,
+            "message": "Great, I will book the meeting room.",
+            "timestamp": "2024-06-06T14:25:00Z"
+        },
+        {
+            "id": 22,
+            "chatId": 7,
+            "senderId": 1,
+            "message": "Hannah, would you like to go hiking this weekend?",
+            "timestamp": "2024-06-07T11:15:00Z"
+        },
+        {
+            "id": 23,
+            "chatId": 7,
+            "senderId": 8,
+            "message": "I am interested. Which trail were you thinking of?",
+            "timestamp": "2024-06-07T11:22:00Z"
+        },
+        {
+            "id": 24,
+            "chatId": 7,
+            "senderId": 1,
+            "message": "The lakeside trail would be great.",
+            "timestamp": "2024-06-07T11:30:00Z"
+        },
+        {
+            "id": 25,
+            "chatId": 7,
+            "senderId": 8,
+            "message": "Saturday morning works for me.",
+            "timestamp": "2024-06-07T11:40:00Z"
+        },
+        {
+            "id": 26,
+            "chatId": 8,
+            "senderId": 6,
+            "message": "I cannot get the new calendar integration to load.",
+            "timestamp": "2024-06-08T15:40:00Z"
+        },
+        {
+            "id": 27,
+            "chatId": 8,
+            "senderId": 10,
+            "message": "Try signing out and signing in again.",
+            "timestamp": "2024-06-08T15:55:00Z"
+        },
+        {
+            "id": 28,
+            "chatId": 8,
+            "senderId": 6,
+            "message": "Thanks Julia, that fixed the issue!",
+            "timestamp": "2024-06-08T16:05:00Z"
+        },
+        {
+            "id": 29,
+            "chatId": 9,
+            "senderId": 4,
+            "message": "Here is a first draft of the event agenda.",
+            "timestamp": "2024-06-09T08:30:00Z"
+        },
+        {
+            "id": 30,
+            "chatId": 9,
+            "senderId": 8,
+            "message": "I suggest adding a short welcome section.",
+            "timestamp": "2024-06-09T08:38:00Z"
+        },
+        {
+            "id": 31,
+            "chatId": 9,
+            "senderId": 4,
+            "message": "I have shared the updated agenda.",
+            "timestamp": "2024-06-09T08:50:00Z"
+        },
+        {
+            "id": 32,
+            "chatId": 10,
+            "senderId": 1,
+            "message": "Do we have everything ready for the study session?",
+            "timestamp": "2024-06-10T18:45:00Z"
+        },
+        {
+            "id": 33,
+            "chatId": 10,
+            "senderId": 9,
+            "message": "I have prepared the practice questions.",
+            "timestamp": "2024-06-10T18:58:00Z"
+        },
+        {
+            "id": 34,
+            "chatId": 10,
+            "senderId": 9,
+            "message": "See you at the study session!",
+            "timestamp": "2024-06-10T19:15:00Z"
+        },
+        {
+            "id": 35,
+            "chatId": 5,
+            "senderId": 2,
+            "message": "great!",
+            "timestamp": "2026-10-17T23:00:41.262Z"
+        },
+        {
+            "id": 36,
+            "chatId": 5,
+            "senderId": 2,
+            "message": "see you then",
+            "timestamp": "2026-10-17T23:01:05.289Z"
+        },
+        {
+            "id": 37,
+            "chatId": 1,
+            "senderId": 2,
+            "message": "hi alice",
+            "timestamp": "2026-10-17T23:08:01.209Z"
+        },
+        {
+            "id": 38,
+            "chatId": 1,
+            "senderId": 1,
+            "message": "what's up bob",
+            "timestamp": "2026-10-17T23:09:09.984Z"
+        },
+        {
+            "id": 39,
+            "chatId": 7,
+            "senderId": 1,
+            "message": "Hi!",
+            "timestamp": "2026-10-17T23:12:35.909Z"
+        },
+        {
+            "id": 40,
+            "chatId": 2,
+            "senderId": 3,
+            "message": "Hey Alice!",
+            "timestamp": "2026-10-17T23:16:18.240Z"
+        },
+        {
+            "id": 41,
+            "chatId": 7,
+            "senderId": 8,
+            "message": "hello!",
+            "timestamp": "2026-10-20T08:34:55.474Z"
+        },
+        {
+            "id": 42,
+            "chatId": 7,
+            "senderId": 1,
+            "message": "what's up",
+            "timestamp": "2026-10-20T08:35:00.765Z"
+        }
+    ]
+}
