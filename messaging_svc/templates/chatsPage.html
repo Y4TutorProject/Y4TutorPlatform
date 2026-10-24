@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="">
+<link href="../static/styles/styles.css" rel="stylesheet">
+<div class="w-full max-w-7xl min-h-screen mx-auto bg-white rounded-2xl shadow-xl flex">
+
+    <div class="w-1/ border-r border-gray-200 flex flex-col bg-gray-50">
+
+        <div class="p-5 border-b bg-white">
+            <h1 class="text-xl ont-bold">Chat App</h1>
+            <p class="text-sm text-gray-500">Welcome, {{ name }}</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+
+            {% for chat in chats %}
+            <a event="click" onclick="getMessages('{{ chat.displayName }}', '{{ chat.chatId }}')" class="block">
+            <div
+                class="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-100 transition-all border-b border-gray-100"
+            >
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-semibold text-gray-800 truncate">
+                            {{ chat.displayName }}
+                        </h2>
+
+                        <span class="text-xs text-gray-400">
+                            {{ chat.timestamp }}
+                        </span>
+                    </div>
+
+                    <p class="text-sm text-gray-500 truncate">
+                        {{ chat.lastMessage }}
+                    </p>
+                </div>
+            </a>
+            </div>
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <!-- Main Chat -->
+    <div class="flex-1 bg-gradient-to-b from-gray-50 to-white">
+
+        <div class="h-full flex flex-col">
+            <div class="border-b bg-white px-6 py-4 flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-blue-500"></div>
+
+                <div>
+                    <h2 class="font-semibold text-lg" id="chat-header">
+                        Select a chat
+                    </h2>
+                    
+        
+                </div>
+            </div>
+
+            <!-- Empty Conversation Area -->
+            <div id="conversation-area" class="flex-1 overflow-y-auto p-4 md:p-6">
+                <ul id="conversation-messages" class="flex flex-col gap-3 max-w-4xl mx-auto">
+                    
+                </ul>
+            </div>
+
+            <div id="message-box" class="border-t border-gray-200 bg-white p-4 flex items-center gap-3">
+
+    <!-- File Upload -->
+    <label
+        for="file-upload"
+        class="flex h-10 w-15 cursor-pointer items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+        title="Attach file"
+    >
+     Upload File
+    </label>
+
+    <input
+        type="file"
+        id="file-upload"
+        class="hidden"
+        multiple
+    />
+
+    <!-- Message Input -->
+    <input
+        type="text"
+        id="message-input"
+        name="message"
+        placeholder="Type a message..."
+        class="flex-1 rounded-full border border-gray-300 bg-gray-50 px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    />
+
+    <!-- Send Button -->
+    <button
+        type="button"
+        id="send-btn"
+        onclick="sendMessage()"
+        class="rounded-full bg-blue-600 px-5 py-3 text-white font-medium hover:bg-blue-700 transition"
+    >
+        Send
+    </button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentChatId = null;
+
+
+    var socketio = io();
+    socketio.on("message", function (message) {
+        createChatItem(message, document.getElementById("chat-header").innerText);
+    });
+    function createChatItem(messageObj, displayName) {
+        var messages = document.getElementById("conversation-messages");
+        var user = sessionStorage.getItem("user");
+        const {message, messageId, senderId, timestamp} = messageObj;
+
+        if(String(senderId) === user) {
+            messages.innerHTML += `
+                <li class="flex justify-end">
+                    <article class="max-w-full md:max-w-2xl rounded-2xl rounded-br-md bg-blue-600 px-4 py-3 text-white shadow-sm">
+                        <strong class="block text-sm font-semibold">You</strong>
+                        <p class="mt-1 break-words text-sm leading-6">${message}</p>
+                        <small class="mt-2 block text-right text-xs text-blue-100">${new Date(timestamp).toLocaleString()}</small>
+                    </article>
+                </li>
+            `;
+        } else {
+            messages.innerHTML += `
+                <li class="flex justify-start">
+                    <article class="max-w-full md:max-w-2xl rounded-2xl rounded-bl-md bg-gray-100 px-4 py-3 text-gray-800 shadow-sm">
+                        <strong class="block text-sm font-semibold text-gray-900">${displayName}</strong>
+                        <p class="mt-1 break-words text-sm leading-6">${message}</p>
+                        <small class="mt-2 block text-xs text-gray-500">${new Date(timestamp).toLocaleString()}</small>
+                    </article>
+                </li>
+            `;
+        }
+
+    }
+
+        function getMessages(displayName, chatId) {
+        
+        if(currentChatId === chatId) {
+            return; 
+        }
+        if(currentChatId) {
+            // disconnect from prev chat 
+            socketio.emit("leave_chat", { chatId: currentChatId, userId: sessionStorage.getItem("user") });
+        }
+        currentChatId = chatId;
+
+        // Connect to the chat
+        socketio.emit("join_chat", { chatId: chatId, userId: sessionStorage.getItem("user") });
+        fetch('/mychats/chat/' + chatId, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        }).then(response => response.json())
+        .then(data => {
+            document.getElementById("chat-header").innerText = displayName;
+            var messageBox = document.getElementById("conversation-messages");
+            messageBox.innerHTML = "";
+            data.forEach(message => {
+                createChatItem(message, displayName);
+            });
+        })
+
+    }
+
+    function sendMessage() {
+      var msgInput = document.getElementById("message-input");
+      if (currentChatId === null || msgInput.value.trim() === "") return;
+      var msg = msgInput.value;
+      socketio.emit("message", { message: msg, chatId: currentChatId, senderId: sessionStorage.getItem("user"), timestamp: new Date().toISOString() });
+      msgInput.value = "";
+    }
+
+    document.getElementById("message-input").addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+</script>
+<script>
+    // Store the user in sessionStorage for later use
+    sessionStorage.setItem("user", "{{ user }}");
+</script>
+</div>
+{% endblock %}
