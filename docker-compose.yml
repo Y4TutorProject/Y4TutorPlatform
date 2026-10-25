@@ -47,6 +47,20 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./users_svc/users_db_data:/data/db
+  
+  matching_svc:
+    container_name: matching_svc
+    build:
+      context: ./matching_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5052:5000"
+    environment:
+      - FLASK_ENV=development
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+    depends_on:
+      users_db:
+        condition: service_healthy
 
   mongo-express:
     container_name: mongo-express

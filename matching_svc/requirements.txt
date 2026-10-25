@@ -1,0 +1,5 @@
+# add the numpy requirement to the requirements.txt file.
+numpy==2.5.4
+flask==3.0.3
+requests==2.32.3
+pytest==9.1.1
