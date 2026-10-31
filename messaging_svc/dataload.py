@@ -1,32 +1,25 @@
-import json
-from Y4TutorPlatform.messaging_svc.models.User import User
-from Y4TutorPlatform.messaging_svc.models.Chat import Chat
-from Y4TutorPlatform.messaging_svc.models.Message import Message
+from messages_dao.MongoMessagesDAO import MongoMessagesDAO
 
 
 users = {}
-chats = {}
-messages = []
-
-usersDump = json.load(open('./data/users.json', 'r'))['users']
-chatsDump = json.load(open('./data/chats.json', 'r'))['chats']
-messagesDump = json.load(open('./data/messages.json', 'r'))['messages']
-
-for user in usersDump:
-    users[user['id']] = User(user)
-
-for chat in chatsDump:
-    chats[chat['id']] = Chat(chat)
-
-for message in messagesDump:
-    messages.append(Message(message))
+dao = MongoMessagesDAO()
+dao.connect_to_database()
+dao.setup_database()
 
 
-def updateFiles():
-    with open('./data/users.json', 'w') as f:
-        json.dump({"users": [user.to_dict() for user in users.values()]}, f, indent=4)
-    with open('./data/chats.json', 'w') as f:
-        json.dump({"chats": [chat.to_dict() for chat in chats.values()]}, f, indent=4)
-    with open('./data/messages.json', 'w') as f:
-        json.dump({"messages": [message.to_dict() for message in messages]}, f, indent=4)
-        
+def get_last_read_message_id(user_id, chat_id):
+    state = dao.get_chat_read_state(str(user_id), str(chat_id))
+    return state["lastreadmessageId"] if state else None
+
+
+def mark_chat_read(user_id, chat_id, message_id):
+    existing_state = dao.get_chat_read_state(str(user_id), str(chat_id))
+    state_id = existing_state["id"] if existing_state else None
+    if state_id is None:
+        state_id = dao.get_next_read_state_id()
+    dao.add_or_update_chat_read_state(
+        state_id,
+        str(user_id),
+        str(chat_id),
+        str(message_id),
+    )

@@ -1,65 +1,73 @@
-from email.mime import message
-
-from flask import Flask, json, request, render_template, redirect, url_for, session
-from flask_socketio import SocketIO, join_room, leave_room, send, emit
-import random
-from string import ascii_letters
-from Y4TutorPlatform.messaging_svc.dataload import users, messages, chats, updateFiles
-from Y4TutorPlatform.messaging_svc.models.Chat import Chat
-from Y4TutorPlatform.messaging_svc.models.Message import Message
-from Y4TutorPlatform.messaging_svc.models.User import User
+from flask import Flask, jsonify, render_template, session
+from flask_socketio import SocketIO, join_room
+from dataload import (
+    get_last_read_message_id,
+    mark_chat_read,
+    dao,
+    users,
+)
+from models.Message import Message
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "supersecretkey"
 socketio = SocketIO(app)
 
 
+def _id(value):
+    return str(value)
 
-        
 
 @app.route('/mychats/<userId>')
 def my_chats(userId:str):
-    user = users.get(int(userId))
-    if(user is None):
-        return "User not found", 404
-    session['user'] = int(userId)
-    if user is not None:
-        return render_template('chatsPage.html', user=user.id, name=user.name, chats = loadChats(user.id))
+    #TODO: change to request from user_svc
+    user_id = _id(userId)
+    user = users.get(user_id)
+    session['user'] = user_id
+    return render_template(
+        'chatsPage.html',
+        user=user_id,
+        name=user.name if user else user_id,
+        chats=loadChats(user_id)
+    )
 
-def loadChats(user: int):
+def loadChats(user: str):
+    user_id = _id(user)
     userChats = []
-    for chat in sorted(chats.values(), reverse=True):
-        if user not in chat.members:
+    for chat in dao.get_chats_for_user(user_id):
+        if user_id not in {_id(member_id) for member_id in chat.members}:
             continue
         # get the member that is not this user
         other_user_id = next(
             member_id
             for member_id in chat.members
-            if member_id != user
+            if _id(member_id) != user_id
         )
         # get the name of the other user
-        other_user = users.get(other_user_id)
+        other_user = users.get(_id(other_user_id))
+        latest_message = dao.get_latest_message(_id(chat.id))
+        last_read_id = get_last_read_message_id(user_id, chat.id)
         userChats.append({
-            "chatId": chat.id,
+            "chatId": _id(chat.id),
             "otherUserId": other_user.id,
-            "displayName": other_user.name,
+            "displayName": other_user.name if other_user else _id(other_user_id),
             "lastMessage": chat.lastMessage,
-            "timestamp": chat.updatedAt
+            "timestamp": chat.updatedAt,
+            "unread": (
+                latest_message is not None
+                and _id(latest_message.id) != last_read_id
+                and _id(latest_message.senderId) != user_id
+            )
         })
     return userChats
 
 
 def loadChatMessages(chatId: str):
-    # if it is not a valid chat id, return an empty list
-    chatMessages = []
-    for message in messages:
-        if str(message.chatId) == chatId:
-            chatMessages.append(message)
-    # sort the messages by timestamp
-    chatMessages.sort()
+    chat_id = _id(chatId)
+    chatMessages = dao.get_messages(chat_id)
     return [{
-        "messageId": message.id,
-        "senderId": message.senderId,
+        "messageId": _id(message.id),
+        "chatId": chat_id,
+        "senderId": _id(message.senderId),
         "message": message.message,
         "timestamp": message.timestamp
     } for message in chatMessages]
@@ -67,72 +75,87 @@ def loadChatMessages(chatId: str):
 
 @app.route('/mychats/chat/<chatId>', methods=['GET'])
 def getChatById(chatId:str): 
-    chat_id = int(chatId)
-    if chat_id not in chats:
-        return [], 404
-    messages = loadChatMessages(chatId)
-    return json.dumps(messages), 200
+    chat_id = _id(chatId)
+    if dao.get_chat(chat_id) is None:
+        return jsonify([]), 404
+    return jsonify(loadChatMessages(chat_id))
 
-# # handles message send on the backend and sends it to the room, also adds it to the room's message history
+
+@app.route('/mychats/chat/<chatId>/read', methods=['POST'])
+def mark_chat_read_route(chatId: str):
+    user_id = session.get("user")
+    chat_id = _id(chatId)
+    chat = dao.get_chat(chat_id)
+    if user_id is None or chat is None:
+        return jsonify({"error": "Chat not found"}), 404
+
+    chat_messages = loadChatMessages(chat_id)
+    if chat_messages:
+        mark_chat_read(user_id, chat_id, chat_messages[-1]["messageId"])
+    return jsonify({"success": True})
+
 @socketio.on('message')
 def handle_message(payload):
-    chat_id = int(payload["chatId"])
-    sender_id = int(payload["senderId"])
-    # update the messages list with the new message
-    # TODO: fix message id generation
+    if not payload or "chatId" not in payload or "senderId" not in payload:
+        return
+
+    chat_id = _id(payload["chatId"])
+    sender_id = _id(payload["senderId"])
+    chat = dao.get_chat(chat_id)
+    # make sure both users are part of the current chat
+    if chat is None or sender_id not in {_id(member_id) for member_id in chat.members}:
+        return
     new_message = Message({
-        "id": len(messages) + 1, 
+        "id": dao.get_next_message_id(),
         "chatId": chat_id,
         "senderId": sender_id,
         "message": payload["message"],
         "timestamp": payload["timestamp"]
     })
-    messages.append(new_message)
-    # update the chat's last message and updatedAt
-    chat = chats.get(chat_id)
-    if chat is not None:
-        chat.lastMessage = payload["message"]
-        chat.updatedAt = payload["timestamp"]
-    updateFiles()
-    
-    emit("message", {
-        "messageId": new_message.id,
-        "senderId": new_message.senderId,
+    dao.add_message(new_message)
+
+
+    chat.lastMessage = payload["message"]
+    chat.messageId = new_message.id
+    chat.updatedAt = payload["timestamp"]
+    if not dao.update_chat(chat):
+        dao.delete_message(new_message.id)
+        return
+
+    out = {
+        "messageId": _id(new_message.id),
+        "chatId": chat_id,
+        "senderId": _id(new_message.senderId),
         "message": new_message.message,
         "timestamp": new_message.timestamp
-    }, to=str(chat_id))
-
+    }
+    # TODO: Trigger the notification service
+    for member_id in set(chat.members):
+        socketio.emit("message", out, to=f"user:{_id(member_id)}")
 
 @socketio.on('connect')
-def handle_connect():
-    print("Client connected")
+def handle_connect(auth):
+    user_id = _id(auth.get("userId")) if auth and auth.get("userId") is not None else None
+    if user_id is not None:
+        if user_id in users:
+            join_room(f"user:{user_id}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
     print("Client disconnected")
 
 @socketio.on('join_chat')
-def join_chat(data):
-    userId = data.get('userId')
-    chatId = data.get('chatId')
-    if userId is None or chatId is None:
-        return
-    chat_id = int(chatId)
-    if chat_id not in chats:
-        leave_room(chatId)
-        return
-    join_room(str(chat_id))
-
+def handle_join_chat(data):
+    chat_id = _id(data.get("chatId")) if data else None
+    user_id = _id(data.get("userId")) if data and data.get("userId") is not None else None
+    chat = dao.get_chat(chat_id) if chat_id is not None else None
+    if chat and user_id in {_id(member_id) for member_id in chat.members}:
+        join_room(f"user:{user_id}")
 
 @socketio.on('leave_chat')
-def handle_leave(data):
-    userId = data.get('userId')
-    chatId = data.get('chatId')
-    if userId is None or chatId is None:
-        return
-    leave_room(str(chatId))
+def handle_leave_chat(data):
+    return
 
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
-
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True, host="0.0.0.0")

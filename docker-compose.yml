@@ -1,6 +1,5 @@
-version: '3.8'
+version: "3.8"
 
-# REGISTRATION
 services:
   registration_svc:
     container_name: registration_svc
@@ -23,8 +22,8 @@ services:
       - "5051:5000"
     environment:
       - FLASK_ENV=development
-      - MONGO_URI=mongodb://admin:password@users_db:27017/
-      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - MONGO_URI=mongodb://admin:password@users_db:27017/?authSource=admin
+      - SECRET_KEY=${SECRET_KEY}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       - MONGO_DB_NAME=users_db
       - MONGO_COLLECTION_NAME=users
@@ -47,6 +46,42 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./users_svc/users_db_data:/data/db
+
+  messaging_svc:
+    container_name: messaging_svc
+    build:
+      context: ./messaging_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5052:5000"
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@messaging_db:27017/?authSource=admin
+      - SECRET_KEY=${SECRET_KEY}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - MONGO_DB_NAME=messaging_db
+      - MONGO_CHAT_COLLECTION_NAME=chats
+      - MONGO_MESSAGE_COLLECTION_NAME=messages
+      - MONGO_READ_STATE_COLLECTION_NAME=chatReadStates
+    depends_on:
+      messaging_db:
+        condition: service_healthy
+
+  messaging_db:
+    container_name: messaging_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./messaging_svc/messaging_db_data:/data/db
 
   mongo-express:
     container_name: mongo-express
