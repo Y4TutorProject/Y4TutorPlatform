@@ -1,22 +1,31 @@
-from flask import Flask
-from registration_svc.interfaces.registration_interface import RegistrationInterface, RegistrationDAO
-from pymongo import MongoClient
-from dotenv import load_dotenv
-import os
+import re
 
-app = Flask(__name__)
-load_dotenv()
+from registration_svc.interfaces.registration_interface import RegistrationInterface
+from users_svc.credentials import hash_password, normalize_email
+from users_svc.Objects.User import User
+
 
 class RegistrationService(RegistrationInterface):
-    def __init__(self):
-        self.app = Flask(__name__)
-        self.dao = MongoDAO()
-
-    def register_user(self, user_data):
-        self.dao.add_to_database(user_data)
+    def __init__(self, dao):
+        self.dao = dao
 
     def validate_user(self, user_data):
-        pass
+        if not isinstance(user_data, dict):
+            raise ValueError("A JSON object is required.")
+        username = user_data.get("username")
+        if not isinstance(username, str):
+            raise ValueError("Username is required.")
+        username = username.strip().casefold()
+        if not re.fullmatch(r"[a-z0-9_]{3,30}", username):
+            raise ValueError("Username must contain 3–30 letters, numbers, or underscores.")
+        email = normalize_email(user_data.get("email"))
+        password = user_data.get("password")
+        if not isinstance(password, str) or not 9 <= len(password) <= 128:
+            raise ValueError("Password must contain 9–128 characters.")
+        return {"username": username, "email": email, "password": password}
 
-    def log_in_user(self, user_data):
-        pass
+    def register_user(self, user_data):
+        data = self.validate_user(user_data)
+        user = User(data["username"], hash_password(data["password"]), data["email"])
+        self.dao.add_user(user)
+        return user

@@ -5,14 +5,20 @@ services:
   registration_svc:
     container_name: registration_svc
     build:
-      context: ./registration_svc
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: registration_svc/Dockerfile
     ports:
       - "5050:5000"
     environment:
       - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@users_db:27017/
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - MONGO_DB_NAME=users_db
+      - MONGO_COLLECTION_NAME=users
     depends_on:
-      - users_svc
+      users_db:
+        condition: service_healthy
 
   users_svc:
     container_name: users_svc
