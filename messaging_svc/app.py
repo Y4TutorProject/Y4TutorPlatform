@@ -1,15 +1,15 @@
-from flask import Flask, jsonify, render_template, session
+from flask import Flask, jsonify, render_template, request, session
 from flask_socketio import SocketIO, join_room
 from dataload import (
     get_last_read_message_id,
     mark_chat_read,
     dao,
-    users,
 )
 from models.Message import Message
+import os
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "supersecretkey"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default_secret_key")
 socketio = SocketIO(app)
 
 
@@ -17,16 +17,19 @@ def _id(value):
     return str(value)
 
 
-@app.route('/mychats/<userId>')
-def my_chats(userId:str):
-    #TODO: change to request from user_svc
-    user_id = _id(userId)
-    user = users.get(user_id)
-    session['user'] = user_id
-    return render_template(
+@app.route('/mychats/me', methods=['GET'])
+def my_chats():
+   user_data = request.get_json()
+   if user_data is None:
+       return jsonify({"error": "Missing user data"}), 400  
+   user_id = user_data.get("userId") if user_data else None
+   username = user_data.get("username") if user_data else None
+   if user_id is None or username is None:
+       return jsonify({"error": "Missing user information"}), 400
+   return render_template(
         'chatsPage.html',
         user=user_id,
-        name=user.name if user else user_id,
+        name=username,
         chats=loadChats(user_id)
     )
 
