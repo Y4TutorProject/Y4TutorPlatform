@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+{% block page %}signup{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main %}
+<main class="auth-screen" aria-labelledby="form-title">
+  <h1 id="form-title">Sign up</h1>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+  <form id="signup-form" method="post" action="/signup">
+    <div class="college-picker">
+      <label class="form-label" for="college">Select your college</label>
+      <select class="form-select" id="college" name="college_id" aria-describedby="college-help" disabled>
+        <option value="" selected>Select your college</option>
+      </select>
+      <p class="form-text mb-0" id="college-help">Not implemented yet. College selection will be available later.</p>
+    </div>
+    <div class="signup-fields">
+      <div class="auth-field">
+        <label class="form-label" for="email">Email address</label>
+        <input class="form-control" id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" id="password" name="password" type="password" autocomplete="new-password" minlength="9" maxlength="128" title="Use 9–128 characters" required>
+      </div>
+      <div class="auth-field">
+        <label class="form-label" for="confirm-password">Confirm Password</label>
+        <input class="form-control" id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="9" maxlength="128" required>
+      </div>
+    </div>
+    <button class="btn btn-dark auth-submit" type="submit">Sign up</button>
+  </form>
+  <noscript><p class="alert alert-danger mt-3">Enable JavaScript to sign up.</p></noscript>
+  <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+</main>
+{% endblock %}

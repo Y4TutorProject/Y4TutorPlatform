@@ -1,0 +1,35 @@
+[hidden] { display: none !important; }
+
+.auth-page { background: #f8f9fa; color: #161616; }
+.auth-screen { width: calc(100% - 64px); max-width: 1000px; margin: 64px auto; padding: 64px; border: 1px solid #e5e5e5; border-radius: 12px; background: #fff; }
+.auth-screen h1 { margin: 3px 0 48px; text-align: center; font-size: 30px; font-weight: 700; }
+#signup-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 56px; row-gap: 32px; align-items: start; }
+.college-picker { padding: 24px; border-radius: 12px; background: #f5eff9; }
+.college-picker .form-label { font-size: 14px; }
+.college-picker .form-select { min-height: 44px; border-color: #d6cddd; border-radius: 8px; font-size: 14px; }
+.college-picker .form-select:disabled { background-color: #ede6f1; color: #68616d; }
+.college-picker .form-text { margin-top: 12px; color: #68616d; font-size: 12px; }
+.signup-fields { min-width: 0; }
+.signin-content { max-width: 408px; margin: 0 auto; }
+.auth-field { margin-bottom: 28px; }
+.auth-field:last-child { margin-bottom: 0; }
+.auth-field .form-label { margin-bottom: 6px; font-size: 14px; }
+.auth-field .form-control { min-height: 44px; border-color: #d6d6d6; border-radius: 8px; font-size: 14px; }
+.auth-field .form-control:focus, .college-picker .form-select:focus { border-color: #ad97c1; box-shadow: 0 0 0 .25rem #ede6f1; }
+.auth-submit { grid-column: 2; justify-self: center; display: block; min-width: 180px; margin: 0; padding: 9px 28px; border-radius: 20px; background: #000; font-size: 20px; }
+#login-form .auth-submit { margin: 32px auto 0; }
+.auth-switch { margin: 26px 0 0; text-align: center; color: #777; font-size: 12px; }
+.auth-switch a { color: #333; }
+@media (min-width: 768px) and (max-width: 991px) {
+  .auth-screen { padding: 56px 32px 40px; }
+  #signup-form { column-gap: 32px; }
+}
+@media (max-width: 767px) {
+  .auth-page { background: #fff; }
+  .auth-screen { width: 100%; max-width: 480px; min-height: 100svh; margin: 0 auto; padding: 56px 32px 28px; border: 0; border-radius: 0; }
+  .auth-screen h1 { margin-bottom: 48px; }
+  #signup-form { display: block; }
+  .college-picker { margin-bottom: 32px; padding: 20px; }
+  .auth-field { margin-bottom: 32px; }
+  .auth-submit, #login-form .auth-submit { margin: 40px auto 0; }
+}

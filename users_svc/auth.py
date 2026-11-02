@@ -1,7 +1,6 @@
 from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import generate_csrf
-from pymongo.errors import DuplicateKeyError
 
 
 auth = Blueprint("auth", __name__)
@@ -17,20 +16,6 @@ def json_body():
 @auth.get("/auth/csrf")
 def csrf_token():
     return jsonify(csrf_token=generate_csrf())
-
-
-@auth.post("/auth/signup")
-def signup():
-    try:
-        data = json_body()
-        user = current_app.extensions["users_service"].sign_up(
-            data.get("username"), data.get("password"), data.get("email"),
-        )
-    except ValueError as error:
-        return jsonify(error=str(error)), 400
-    except DuplicateKeyError:
-        return jsonify(error="Username or email is already registered."), 409
-    return jsonify(user=user.to_public_dict()), 201
 
 
 @auth.post("/auth/login")
