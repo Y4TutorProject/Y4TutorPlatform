@@ -6,3 +6,4 @@
 **/*.pyc
 .env
 users_svc/users_db_data
+college_svc/college_db_data

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+{% block page %}signup-choice{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main %}
+<main class="auth-screen" aria-labelledby="form-title">
+  <h1 id="form-title">Sign up</h1>
+  <div class="signup-choices">
+    <section class="signup-choice">
+      <h2 class="h5">I'm a student</h2>
+      <p>Select your college and sign up using your student email address.</p>
+      <a class="btn btn-dark" href="/signup/student">Student sign up</a>
+    </section>
+    <section class="signup-choice">
+      <h2 class="h5">Register a college</h2>
+      <p>Create an administrator account, verify your email, then register your college.</p>
+      <a class="btn btn-dark" href="/signup/college-admin">Register as an administrator</a>
+    </section>
+  </div>
+  <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+</main>
+{% endblock %}
