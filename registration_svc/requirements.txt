@@ -1,1 +1,1 @@
-flask
+-r ../users_svc/requirements.txt

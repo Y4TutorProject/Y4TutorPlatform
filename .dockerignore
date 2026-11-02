@@ -1,0 +1,8 @@
+.git
+.venv
+.venv-auth
+.pytest_cache
+**/__pycache__
+**/*.pyc
+.env
+users_svc/users_db_data

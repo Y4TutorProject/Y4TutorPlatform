@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · TutorPlatform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+  <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}bg-light{% endblock %}" data-page="{% block page %}{% endblock %}">
+  {% block navigation %}
+  <nav class="navbar bg-white border-bottom" aria-label="Main navigation">
+    <div class="container">
+      <a class="navbar-brand" href="/login">TutorPlatform</a>
+      <div class="d-flex gap-3">
+        <a href="/login">Sign in</a>
+        <a href="/signup">Register</a>
+      </div>
+    </div>
+  </nav>
+  {% endblock %}
+  {% block main %}
+  <main class="container py-5">
+    <div class="row justify-content-center">
+      <section class="col-12 col-md-8 col-lg-5" aria-labelledby="form-title">
+        <div class="card">
+          <div class="card-body p-4">
+            {% block content %}{% endblock %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  {% endblock %}
+</body>
+</html>
