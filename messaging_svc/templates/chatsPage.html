@@ -12,30 +12,30 @@
             <p class="text-sm text-gray-500">Welcome, {{ name }}</p>
         </div>
 
-        <div class="flex-1 overflow-y-auto">
+        <div id="chat-list" class="flex-1 overflow-y-auto">
 
             {% for chat in chats %}
-            <a event="click" onclick="getMessages('{{ chat.displayName }}', '{{ chat.chatId }}')" class="block">
-            <div
-                class="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-100 transition-all border-b border-gray-100"
-            >
-                <div class="flex-1 min-w-0">
-                    <div class="flex justify-between items-center">
-                        <h2 class="font-semibold text-gray-800 truncate">
-                            {{ chat.displayName }}
-                        </h2>
+            <a id="chat-{{ chat.chatId }}" data-chat-id="{{ chat.chatId }}" onclick="getMessages('{{ chat.displayName }}', '{{ chat.chatId }}')" class="block{% if chat.unread %} font-semibold{% endif %}">
+                <div
+                    class="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-100 transition-all border-b border-gray-100"
+                >
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center">
+                            <h2 class="font-semibold text-gray-800 truncate">
+                                {{ chat.displayName }}
+                            </h2>
 
-                        <span class="text-xs text-gray-400">
-                            {{ chat.timestamp }}
-                        </span>
+                            <span class="last-time text-xs text-gray-400" data-timestamp="{{ chat.timestamp }}">
+                                {{ chat.timestamp }}
+                            </span>
+                        </div>
+
+                        <p class="last-msg text-sm text-gray-500 truncate{% if chat.unread %} font-semibold{% endif %}">
+                            {{ chat.lastMessage }}
+                        </p>
                     </div>
-
-                    <p class="text-sm text-gray-500 truncate">
-                        {{ chat.lastMessage }}
-                    </p>
                 </div>
             </a>
-            </div>
             {% endfor %}
 
         </div>
@@ -50,7 +50,7 @@
                 <div class="w-10 h-10 rounded-full bg-blue-500"></div>
 
                 <div>
-                    <h2 class="font-semibold text-lg" id="chat-header">
+                    <h2 class="text-xl font-bold text-gray-800" id="chat-header">
                         Select a chat
                     </h2>
                     
@@ -111,38 +111,105 @@
     let currentChatId = null;
 
 
-    var socketio = io();
-    socketio.on("message", function (message) {
-        createChatItem(message, document.getElementById("chat-header").innerText);
-    });
-    function createChatItem(messageObj, displayName) {
-        var messages = document.getElementById("conversation-messages");
-        var user = sessionStorage.getItem("user");
-        const {message, messageId, senderId, timestamp} = messageObj;
+    var socketio = io({ auth: { userId: "{{ user }}" } });
+   socketio.on("message", function (msg) {
+    updateChatSidebar(msg);
+    if (String(msg.chatId) === String(currentChatId)) {
+        markChatRead(msg.chatId);
+        createChatItem(msg, document.getElementById("chat-header").innerText);
+    }
+});
 
-        if(String(senderId) === user) {
-            messages.innerHTML += `
-                <li class="flex justify-end">
-                    <article class="max-w-full md:max-w-2xl rounded-2xl rounded-br-md bg-blue-600 px-4 py-3 text-white shadow-sm">
-                        <strong class="block text-sm font-semibold">You</strong>
-                        <p class="mt-1 break-words text-sm leading-6">${message}</p>
-                        <small class="mt-2 block text-right text-xs text-blue-100">${new Date(timestamp).toLocaleString()}</small>
-                    </article>
-                </li>
-            `;
-        } else {
-            messages.innerHTML += `
-                <li class="flex justify-start">
-                    <article class="max-w-full md:max-w-2xl rounded-2xl rounded-bl-md bg-gray-100 px-4 py-3 text-gray-800 shadow-sm">
-                        <strong class="block text-sm font-semibold text-gray-900">${displayName}</strong>
-                        <p class="mt-1 break-words text-sm leading-6">${message}</p>
-                        <small class="mt-2 block text-xs text-gray-500">${new Date(timestamp).toLocaleString()}</small>
-                    </article>
-                </li>
-            `;
+function updateChatSidebar(msg) {
+    const chatList = document.getElementById("chat-list");
+    const chatEl = document.getElementById(`chat-${String(msg.chatId)}`);
+
+    if (!chatList || !chatEl) {
+        return;
+    }
+
+    const lastMessage = chatEl.querySelector(".last-msg");
+    const lastTime = chatEl.querySelector(".last-time");
+    if (lastMessage) {
+        lastMessage.innerText = msg.message;
+    }
+    if (lastTime) {
+        lastTime.innerText = formatChatTime(msg.timestamp);
+    }
+    if (String(msg.senderId) !== String("{{ user }}")
+        && String(msg.chatId) !== String(currentChatId)) {
+        chatEl.classList.add("font-semibold");
+        if (lastMessage) {
+            lastMessage.classList.add("font-semibold");
+        }
+    }
+    chatList.prepend(chatEl);
+}
+
+function formatChatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isCurrentYear = date.getFullYear() === now.getFullYear();
+
+    return isToday
+        ? date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : date.toLocaleDateString([], isCurrentYear
+            ? { day: "numeric", month: "short" }
+            : { day: "numeric", month: "short", year: "numeric" });
+}
+
+document.querySelectorAll(".last-time[data-timestamp]").forEach(lastTime => {
+    lastTime.innerText = formatChatTime(lastTime.dataset.timestamp);
+});
+
+function markChatRead(chatId) {
+    const chatEl = document.getElementById(`chat-${String(chatId)}`);
+    if (!chatEl) {
+        return;
+    }
+
+    fetch(`/mychats/chat/${String(chatId)}/read`, {
+        method: "POST"
+    }).catch(error => console.error("Unable to save read state:", error));
+
+    chatEl.classList.remove("font-semibold");
+    const lastMessage = chatEl.querySelector(".last-msg");
+    if (lastMessage) {
+        lastMessage.classList.remove("font-semibold");
+    }
+}
+
+        function createChatItem(message, displayName) {
+            const currentUserId = String("{{ user }}");
+            const item = document.createElement("li");
+            const bubble = document.createElement("div");
+            const sender = String(message.senderId) === currentUserId ? "You" : displayName;
+
+            item.className = "flex " +
+                (String(message.senderId) === currentUserId ? "justify-end" : "justify-start");
+            bubble.className = "max-w-md rounded-2xl px-4 py-2 " +
+                (String(message.senderId) === currentUserId
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-800");
+
+            const senderLabel = document.createElement("p");
+            senderLabel.className = "text-sm font-semibold mb-1";
+            senderLabel.innerText = sender;
+
+            const text = document.createElement("p");
+            text.innerText = message.message;
+            const metadata = document.createElement("small");
+            metadata.className = "block mt-1 text-xs opacity-70";
+            metadata.innerText = formatChatTime(message.timestamp);
+
+            bubble.appendChild(senderLabel);
+            bubble.appendChild(text);
+            bubble.appendChild(metadata);
+            item.appendChild(bubble);
+            document.getElementById("conversation-messages").appendChild(item);
         }
 
-    }
 
         function getMessages(displayName, chatId) {
         
@@ -154,6 +221,7 @@
             socketio.emit("leave_chat", { chatId: currentChatId, userId: sessionStorage.getItem("user") });
         }
         currentChatId = chatId;
+        markChatRead(chatId);
 
         // Connect to the chat
         socketio.emit("join_chat", { chatId: chatId, userId: sessionStorage.getItem("user") });
@@ -162,7 +230,12 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-        }).then(response => response.json())
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error(`Unable to load chat (${response.status})`);
+            }
+            return response.json();
+        })
         .then(data => {
             document.getElementById("chat-header").innerText = displayName;
             var messageBox = document.getElementById("conversation-messages");
@@ -171,6 +244,7 @@
                 createChatItem(message, displayName);
             });
         })
+        .catch(error => console.error("Chat message loading failed:", error));
 
     }
 
