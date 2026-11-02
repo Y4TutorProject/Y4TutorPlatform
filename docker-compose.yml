@@ -1,7 +1,32 @@
-version: '3.8'
-
-# REGISTRATION
 services:
+  gateway:
+    container_name: gateway
+    build:
+      context: ./nginx
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    depends_on:
+      - users_frontend
+      - registration_frontend
+      - users_svc
+      - registration_svc
+
+  users_frontend:
+    container_name: users_frontend
+    build:
+      context: .
+      dockerfile: users_frontend/Dockerfile
+    expose:
+      - "5000"
+
+  registration_frontend:
+    container_name: registration_frontend
+    build:
+      context: .
+      dockerfile: registration_frontend/Dockerfile
+    expose:
+      - "5000"
+
   registration_svc:
     container_name: registration_svc
     build:

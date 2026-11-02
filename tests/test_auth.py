@@ -85,6 +85,24 @@ def test_same_password_has_distinct_salted_hashes(app, client, signup):
     assert len(hashes) == 2 and hashes[0] != hashes[1]
 
 
+def test_signup_without_username_generates_one(registration_client, client):
+    data = {"email": ACCOUNT["email"], "password": PASSWORD}
+    response = post(registration_client, "/auth/signup", data)
+    assert response.status_code == 201
+    user = response.json["user"]
+    assert user["username"].startswith("user_")
+    assert user["roles"] == ["student"]
+    assert user["college_id"] is None
+    assert login(client).status_code == 200
+
+
+@pytest.mark.parametrize("account_type", ["tutor", "admin", "", None, [], {}])
+def test_signup_cannot_choose_account_type(signup, account_type):
+    response = signup(account_type=account_type)
+    assert response.status_code == 201
+    assert response.json["user"]["roles"] == ["student"]
+
+
 @pytest.mark.parametrize("overrides", [
     {"username": "STUDENT_ONE", "email": "other@example.com"},
     {"username": "other", "email": " STUDENT@EXAMPLE.COM "},

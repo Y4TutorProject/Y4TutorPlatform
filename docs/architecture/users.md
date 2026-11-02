@@ -27,6 +27,12 @@ X-CSRFToken will need to be sent on every POST request. After login or logout us
 
 Browsers should use same-origin requests with credentials
 
+The browser UI enters through Nginx at `http://localhost:8080`: `/login` and
+`/account` are served by `users_frontend`, while `/signup` is served by
+`registration_frontend`. Browser API calls use `/api/users/` and
+`/api/registration/`; Nginx strips those prefixes before forwarding to the
+corresponding API. See [frontend architecture](frontends.md).
+
 ## JSON Structure
 ```json
 {
@@ -39,9 +45,15 @@ Browsers should use same-origin requests with credentials
 Passwords must be 9-128 characters, usernames are 3-30 letters, numbers, or underscores.
 usernames and emails are trimmed and lowered
 
-New users currently start as active students; account confirmation is TBD.
+Username is optional: when omitted, the registration service generates one.
+The signup screen only asks for email, password, and password confirmation.
+Signup has no account-type selector. New users start as active students; account
+confirmation is TBD. Direct `account_type`, `roles`, and `status` fields from
+clients are ignored.
 
-College membership is not covered in this service
+The college combobox is disabled and marked **Not implemented yet** on the signup screen.
+The college list will come from `college_db` once that service is set up; no
+placeholder college records or memberships are stored during signup.
 
 ## Errors
 400 for invalid input

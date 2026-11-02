@@ -1,4 +1,5 @@
 import re
+import secrets
 
 from registration_svc.interfaces.registration_interface import RegistrationInterface
 from users_svc.credentials import hash_password, normalize_email
@@ -12,7 +13,9 @@ class RegistrationService(RegistrationInterface):
     def validate_user(self, user_data):
         if not isinstance(user_data, dict):
             raise ValueError("A JSON object is required.")
-        username = user_data.get("username")
+        # The signup screen only asks for email and password. Retain support for
+        # explicit usernames from API clients while generating one when omitted.
+        username = user_data.get("username", "user_" + secrets.token_hex(10))
         if not isinstance(username, str):
             raise ValueError("Username is required.")
         username = username.strip().casefold()
