@@ -1,4 +1,7 @@
 services:
+
+# FRONTEND
+
   gateway:
     container_name: gateway
     build:
@@ -27,6 +30,8 @@ services:
       dockerfile: registration_frontend/Dockerfile
     expose:
       - "5000"
+
+# BACKEND
 
   registration_svc:
     container_name: registration_svc
@@ -71,20 +76,6 @@ services:
       users_db:
         condition: service_healthy
 
-  matching_svc:
-    container_name: matching_svc
-    build:
-      context: ./matching_svc
-      dockerfile: Dockerfile
-    ports:
-      - "5052:5000"
-    environment:
-      - FLASK_ENV=development
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
-    depends_on:
-      users_db:
-        condition: service_healthy
-
   college_svc:
     container_name: college_svc
     build:
@@ -105,42 +96,32 @@ services:
         condition: service_healthy
       users_svc:
         condition: service_started
+  lms_svc:
+    build: ./lms_svc
+    restart: unless-stopped
+    expose:
+      - "5000"
+    environment: &lms_environment
+      MONGO_URI: mongodb://admin:${LMS_DB_PASSWORD:-password}@lms_db:27017/?authSource=admin
+      MONGO_DB_NAME: lms_db
+      LMS_ENCRYPTION_KEY: ${LMS_ENCRYPTION_KEY:-}
+      LMS_ALLOWED_HOSTS: ${LMS_ALLOWED_HOSTS:-}
+      LMS_SYNC_TIMEZONE: ${LMS_SYNC_TIMEZONE:-Europe/Dublin}
+      LMS_SYNC_HOUR: ${LMS_SYNC_HOUR:-2}
+      USERS_API_URL: http://gateway/api/users
+      COLLEGE_API_URL: http://college_svc:5000
+    depends_on:
+      lms_db:
+        condition: service_healthy
 
-# DATABASES
-
-  users_db:
-    container_name: users_db
-    image: mongo:latest
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=password
-    volumes:
-      - ./users_svc/users_db_data:/data/db
-
-  college_db:
-    container_name: college_db
-    image: mongo:latest
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    ports:
-      - "27018:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=password
-    volumes:
-      - ./college_svc/college_db_data:/data/db
-
-# TOOLS
+  lms_worker:
+    build: ./lms_svc
+    command: ["python", "-m", "lms_svc.worker"]
+    restart: unless-stopped
+    environment: *lms_environment
+    depends_on:
+      lms_db:
+        condition: service_healthy
 
   messaging_svc:
     container_name: messaging_svc
@@ -163,6 +144,56 @@ services:
       messaging_db:
         condition: service_healthy
 
+  matching_svc:
+    container_name: matching_svc
+    build:
+      context: ./matching_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5054:5000"
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@users_db:27017/?authSource=admin
+      - SECRET_KEY=${SECRET_KEY}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - MONGO_DB_NAME=users_db
+      - MONGO_COLLECTION_NAME=users
+    depends_on:
+      users_db:
+        condition: service_healthy
+
+# DATABASES
+
+  lms_db:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${LMS_DB_PASSWORD:-password}
+    volumes:
+      - ./lms_svc/lms_db_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  users_db:
+    container_name: users_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./users_svc/users_db_data:/data/db
+
   messaging_db:
     container_name: messaging_db
     image: mongo:latest
@@ -178,6 +209,24 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./messaging_svc/messaging_db_data:/data/db
+
+  college_db:
+    container_name: college_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27019:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./college_svc/college_db_data:/data/db
+
+# TOOLS
 
   mongo-express:
     container_name: mongo-express
