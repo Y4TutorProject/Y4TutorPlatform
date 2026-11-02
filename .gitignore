@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache/
 users_svc/users_db_data/
 messaging_svc/messaging_db_data/
+notification_svc/notification_db_data/

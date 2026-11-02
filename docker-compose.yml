@@ -130,6 +130,21 @@ services:
     volumes:
       - ./messaging_svc/messaging_db_data:/data/db
 
+  notification_db:
+    container_name: notification_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27019:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./notification_svc/notification_db_data:/data/db
   mongo-express:
     container_name: mongo-express
     image: mongo-express:latest

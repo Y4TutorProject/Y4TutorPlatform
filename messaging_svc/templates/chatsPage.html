@@ -53,7 +53,9 @@
                     <h2 class="text-xl font-bold text-gray-800" id="chat-header">
                         Select a chat
                     </h2>
-                    
+                    <p id="typing-indicator" class="hidden text-sm text-blue-600" aria-live="polite">
+                        Typing...
+                    </p>
         
                 </div>
             </div>
@@ -109,16 +111,40 @@
 
 <script>
     let currentChatId = null;
+    const currentUserId = "{{ user }}";
 
 
-    var socketio = io({ auth: { userId: "{{ user }}" } });
+    var socketio = io({ auth: { userId: currentUserId } });
    socketio.on("message", function (msg) {
     updateChatSidebar(msg);
     if (String(msg.chatId) === String(currentChatId)) {
+        hideTypingIndicator();
         markChatRead(msg.chatId);
         createChatItem(msg, document.getElementById("chat-header").innerText);
     }
 });
+
+socketio.on("typing", function (update) {
+    if (
+        String(update.chatId) === String(currentChatId)
+        && String(update.senderId) !== String(currentUserId)
+    ) {
+        setTypingIndicator(update.isTyping, update.senderUsername);
+    }
+});
+
+function setTypingIndicator(isTyping, username) {
+    const indicator = document.getElementById("typing-indicator");
+    if (!indicator) {
+        return;
+    }
+    indicator.innerText = isTyping ? `${username} is typing...` : "";
+    indicator.classList.toggle("hidden", !isTyping);
+}
+
+function hideTypingIndicator() {
+    setTypingIndicator(false, "");
+}
 
 function updateChatSidebar(msg) {
     const chatList = document.getElementById("chat-list");
@@ -136,7 +162,7 @@ function updateChatSidebar(msg) {
     if (lastTime) {
         lastTime.innerText = formatChatTime(msg.timestamp);
     }
-    if (String(msg.senderId) !== String("{{ user }}")
+    if (String(msg.senderId) !== String(currentUserId)
         && String(msg.chatId) !== String(currentChatId)) {
         chatEl.classList.add("font-semibold");
         if (lastMessage) {
@@ -181,7 +207,6 @@ function markChatRead(chatId) {
 }
 
         function createChatItem(message, displayName) {
-            const currentUserId = String("{{ user }}");
             const item = document.createElement("li");
             const bubble = document.createElement("div");
             const sender = String(message.senderId) === currentUserId ? "You" : displayName;
@@ -217,14 +242,16 @@ function markChatRead(chatId) {
             return; 
         }
         if(currentChatId) {
+            stopTyping();
             // disconnect from prev chat 
-            socketio.emit("leave_chat", { chatId: currentChatId, userId: sessionStorage.getItem("user") });
+            socketio.emit("leave_chat", { chatId: currentChatId, userId: currentUserId });
         }
         currentChatId = chatId;
+        hideTypingIndicator();
         markChatRead(chatId);
 
         // Connect to the chat
-        socketio.emit("join_chat", { chatId: chatId, userId: sessionStorage.getItem("user") });
+        socketio.emit("join_chat", { chatId: chatId, userId: currentUserId });
         fetch('/mychats/chat/' + chatId, {
             method: 'GET',
             headers: {
@@ -252,8 +279,23 @@ function markChatRead(chatId) {
       var msgInput = document.getElementById("message-input");
       if (currentChatId === null || msgInput.value.trim() === "") return;
       var msg = msgInput.value;
-      socketio.emit("message", { message: msg, chatId: currentChatId, senderId: sessionStorage.getItem("user"), timestamp: new Date().toISOString() });
+      stopTyping();
+      socketio.emit("message", { message: msg, chatId: currentChatId, senderId: currentUserId, timestamp: new Date().toISOString() });
       msgInput.value = "";
+    }
+
+    let typingTimeout = null;
+    let isTyping = false;
+
+    function stopTyping() {
+        if (isTyping && currentChatId !== null) {
+            socketio.emit("typing", { chatId: currentChatId, isTyping: false });
+        }
+        isTyping = false;
+        if (typingTimeout) {
+            clearTimeout(typingTimeout);
+            typingTimeout = null;
+        }
     }
 
     document.getElementById("message-input").addEventListener("keydown", function (event) {
@@ -261,10 +303,27 @@ function markChatRead(chatId) {
             sendMessage();
         }
     });
-</script>
-<script>
-    // Store the user in sessionStorage for later use
-    sessionStorage.setItem("user", "{{ user }}");
+
+    document.getElementById("message-input").addEventListener("input", function (event) {
+        if (currentChatId === null) {
+            return;
+        }
+
+        if (event.target.value.trim() && !isTyping) {
+            socketio.emit("typing", { chatId: currentChatId, isTyping: true });
+            isTyping = true;
+        } else if (!event.target.value.trim()) {
+            stopTyping();
+            return;
+        }
+
+        if (typingTimeout) {
+            clearTimeout(typingTimeout);
+        }
+        typingTimeout = setTimeout(stopTyping, 1000);
+    });
+
+    document.getElementById("message-input").addEventListener("blur", stopTyping);
 </script>
 </div>
 {% endblock %}
