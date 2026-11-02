@@ -104,6 +104,7 @@ services:
       - FLASK_ENV=development
       - MONGO_URI=mongodb://admin:password@messaging_db:27017/?authSource=admin
       - SECRET_KEY=${SECRET_KEY}
+      - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       - MONGO_DB_NAME=messaging_db
       - MONGO_CHAT_COLLECTION_NAME=chats
