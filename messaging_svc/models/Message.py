@@ -1,4 +1,3 @@
-# create message class based on message dict
 class Message:
 
     def __init__(self, messageData: dict):
@@ -8,7 +7,6 @@ class Message:
         self.message = messageData['message']
         self.timestamp = messageData['timestamp']
 
-    # add a method that enables sorting messages by timestamp
     def __lt__(self, other):
         return self.timestamp < other.timestamp
 
