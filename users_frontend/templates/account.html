@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Your account{% endblock %}
+{% block page %}account{% endblock %}
+{% block content %}
+  <h1 id="form-title" class="h4 mb-4">Your account</h1>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1">Loading your account…</p>
+  <div id="account-details" hidden>
+    <p class="text-muted">You're signed in.</p>
+    <dl class="mb-4">
+      <div><dt>Username</dt><dd class="text-break" id="account-username"></dd></div>
+      <div><dt>Email address</dt><dd class="text-break" id="account-email"></dd></div>
+    </dl>
+    <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
+  </div>
+  <noscript><p class="alert alert-danger mt-3">Enable JavaScript to view your account.</p></noscript>
+  <p class="mt-3 mb-0"><a href="/login">Back to sign in</a></p>
+{% endblock %}
