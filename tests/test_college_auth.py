@@ -25,7 +25,8 @@ def services(monkeypatch):
     monkeypatch.setenv("MONGO_URI", "mongodb://localhost")
     monkeypatch.setattr("users_svc.users_dao.MongoUsersDAO.MongoClient", mongomock.MongoClient)
     monkeypatch.setattr("college_svc.college_dao.MongoCollegeDAO.MongoClient", mongomock.MongoClient)
-    config = {"TESTING": True, "SECRET_KEY": "college-test-secret-" * 3, "SESSION_COOKIE_SECURE": False}
+    config = {"TESTING": True, "SECRET_KEY": "college-test-secret-" * 3, "SESSION_COOKIE_SECURE": False,
+              "COLLEGE_SYNC_TOKEN": "test-service-token"}
     users_app = create_users_app(config)
     users = users_app.test_client()
     mailer = MemoryMailer()

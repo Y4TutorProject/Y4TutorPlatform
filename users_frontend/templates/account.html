@@ -3,15 +3,48 @@
 {% block page %}account{% endblock %}
 {% block content %}
   <h1 id="form-title" class="h4 mb-4">Your account</h1>
-  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1">Loading your account…</p>
-  <div id="account-details" hidden>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+  <div id="account-details">
     <p class="text-muted">You're signed in.</p>
     <dl class="mb-4">
-      <div><dt>Username</dt><dd class="text-break" id="account-username"></dd></div>
-      <div><dt>Email address</dt><dd class="text-break" id="account-email"></dd></div>
+      <div><dt>Username</dt><dd class="text-break" id="account-username">{{ user.username }}</dd></div>
+      <div><dt>Email address</dt><dd class="text-break" id="account-email">{{ user.email }}</dd></div>
     </dl>
     <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
-    <section id="lms-settings" class="mt-4" hidden aria-labelledby="lms-title">
+    {% if is_student %}
+    <section class="mt-4" aria-labelledby="moodle-profile-title">
+      <h2 id="moodle-profile-title" class="h5">Your Moodle information</h2>
+      {% if moodle %}
+      <p class="text-muted">{{ moodle.college.name }}</p>
+      <dl>
+        <dt>Name</dt><dd>{{ (moodle.student.first_name ~ ' ' ~ moodle.student.last_name)|trim or 'Not provided' }}</dd>
+        <dt>Moodle username</dt><dd>{{ moodle.student.username or 'Not provided' }}</dd>
+        <dt>Moodle email</dt><dd class="text-break">{{ moodle.student.email }}</dd>
+      </dl>
+      <p class="small text-muted">Last imported: {{ moodle.imported_at }}</p>
+      {% if moodle.enrolments_available %}
+      <h3 class="h6">Your programmes and modules</h3>
+        {% for course in moodle.courses %}
+        <h4 class="h6 mt-3">{{ course.name }}{% if course.code %} ({{ course.code }}){% endif %}</h4>
+        {% set course_modules = moodle.modules|selectattr('course_id', 'equalto', course.id)|list %}
+        {% if course_modules %}
+        <ul>
+          {% for module in course_modules %}
+          <li>{{ module.name }}{% if module.code %} ({{ module.code }}){% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% else %}<p>You have no active Moodle enrolments in the latest import.</p>{% endfor %}
+      {% else %}
+      <p>Your college needs to synchronize Moodle again to load your enrolments.</p>
+      {% endif %}
+      {% else %}
+      <p role="status">{{ moodle_error }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% if can_manage_college %}
+    <section id="lms-settings" class="mt-4" data-college-id="{{ user.college_id }}" aria-labelledby="lms-title">
       <h2 id="lms-title" class="h5">College system connection</h2>
       <p>Imported users are directory records. They must register and verify their
         email to sign in. Your API key is encrypted and saved for automatic updates.</p>
@@ -49,7 +82,8 @@
       </form>
       <p id="lms-status" class="mt-3" role="status" aria-live="polite"></p>
     </section>
+    {% endif %}
   </div>
-  <noscript><p class="alert alert-danger mt-3">Enable JavaScript to view your account.</p></noscript>
+  <noscript><p class="alert alert-info mt-3">Enable JavaScript to sign out or manage a college connection.</p></noscript>
   <p class="mt-3 mb-0"><a href="/login">Back to sign in</a></p>
 {% endblock %}

@@ -30,6 +30,7 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         LMS_SYNC_HOUR=os.getenv("LMS_SYNC_HOUR", "2"),
         USERS_API_URL=os.getenv("USERS_API_URL", "http://gateway/api/users"),
         COLLEGE_API_URL=os.getenv("COLLEGE_API_URL", "http://college_svc:5000"),
+        COLLEGE_SYNC_TOKEN=os.getenv("COLLEGE_SYNC_TOKEN", ""),
     )
     app.config.update(config or {})
     if not app.config["LMS_ENCRYPTION_KEY"]:
@@ -38,13 +39,68 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         client = MongoClient(app.config["MONGO_URI"], serverSelectionTimeoutMS=5000, tz_aware=True)
         database = client[app.config["MONGO_DB_NAME"]]
     auth = auth_client or UsersAuthClient(app.config["USERS_API_URL"])
-    colleges = college_client or CollegeClient(app.config["COLLEGE_API_URL"])
-    importer = LMSImportService(MongoLMSImportStore(database), app.config["LMS_ALLOWED_HOSTS"].split(","),
+    colleges = college_client or CollegeClient(app.config["COLLEGE_API_URL"], app.config["COLLEGE_SYNC_TOKEN"])
+    importer = LMSImportService(MongoLMSImportStore(database, colleges), app.config["LMS_ALLOWED_HOSTS"].split(","),
                                 private_hosts=app.config["LMS_PRIVATE_HOSTS"].split(",") if app.config["DEV_MODE"] else (),
                                 ca_file=app.config["LMS_CA_FILE"] if app.config["DEV_MODE"] else None)
     sync = LMSSyncService(importer, MongoConnectionStore(database), app.config["LMS_ENCRYPTION_KEY"], colleges,
                           app.config["LMS_SYNC_TIMEZONE"], app.config["LMS_SYNC_HOUR"])
     app.extensions.update(lms_service=importer, lms_sync=sync, lms_database=database)
+
+    @app.get("/students/me")
+    def student_information():
+        user = auth.authenticate(request.cookies.get("tutor_session"), request.headers.get("User-Agent", ""))
+        if "student" not in user.get("roles", []):
+            raise AuthenticationError("Student access required.", 403)
+        college_id = user.get("college_id")
+        college = colleges.get_college(college_id) if college_id else None
+        if college is None:
+            return jsonify(error="Your college is not available."), 404
+        connection = sync.connections.get(college_id)
+        catalog = importer.store.get(college_id, connection["provider"], connection["base_url"]) if connection else None
+        if not catalog:
+            return jsonify(error="Your college has not imported Moodle information yet."), 404
+        # The verified account's college and email are the only lookup keys.
+        # Never accept a requested email or return the college user directory.
+        matches = [record for record in catalog["users"]
+                   if record.get("email") and record["email"].strip().casefold() == user["email"].strip().casefold()]
+        if len(matches) != 1 or matches[0].get("suspended"):
+            return jsonify(error="No active Moodle profile matches your verified email address."), 404
+        profile = {field: matches[0].get(field, "") for field in ("first_name", "last_name", "username", "email")}
+        links = [entry for entry in catalog.get("enrolments", []) if entry["user_source_id"] == matches[0]["source_id"]]
+        targets = {entry["target_id"] for entry in links}
+        if catalog.get("mapping", "academic") == "academic":
+            modules = [module for module in catalog["modules"] if module.get("id") in targets]
+            course_ids = {module["course_id"] for module in modules}
+        else:
+            course_ids = targets
+            modules = [module for module in catalog["modules"] if module["course_id"] in course_ids]
+        # Include the programme/category ancestors so "Y1" has its proper context.
+        courses_by_id = {course["id"]: course for course in catalog["courses"] if "id" in course}
+        pending = list(course_ids)
+        while pending:
+            course = courses_by_id.get(pending.pop())
+            parent = course.get("parent_id") if course else None
+            if parent and parent not in course_ids:
+                course_ids.add(parent)
+                pending.append(parent)
+        children = {}
+        for course in catalog["courses"]:
+            if course.get("id") in course_ids:
+                parent = course.get("parent_id")
+                children.setdefault(parent if parent in course_ids else None, []).append(course)
+        for siblings in children.values():
+            siblings.sort(key=lambda course: course["name"].casefold())
+        courses = []
+        pending = list(reversed(children.get(None, [])))
+        while pending:
+            course = pending.pop()
+            courses.append(course)
+            pending.extend(reversed(children.get(course["id"], [])))
+        return jsonify(student=profile, college={"name": college["name"]},
+                       imported_at=catalog["imported_at"], mapping=catalog.get("mapping", "academic"),
+                       enrolments_available=catalog.get("enrolments_available", False),
+                       courses=courses, modules=modules)
 
     def authorize(college_id):
         user = auth.verify(request.cookies.get("tutor_session"), request.headers.get("User-Agent", ""), request.headers.get("X-CSRFToken"))

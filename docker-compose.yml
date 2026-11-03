@@ -90,6 +90,7 @@ services:
       - MONGO_DB_NAME=college_db
       - MONGO_COLLECTION_NAME=colleges
       - USERS_API_URL=http://gateway/api/users
+      - COLLEGE_SYNC_TOKEN=${COLLEGE_SYNC_TOKEN:-}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
     depends_on:
       college_db:
@@ -113,6 +114,7 @@ services:
       LMS_SYNC_HOUR: ${LMS_SYNC_HOUR:-2}
       USERS_API_URL: http://gateway/api/users
       COLLEGE_API_URL: http://college_svc:5000
+      COLLEGE_SYNC_TOKEN: ${COLLEGE_SYNC_TOKEN:-}
     depends_on:
       lms_db:
         condition: service_healthy

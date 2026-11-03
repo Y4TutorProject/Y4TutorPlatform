@@ -36,7 +36,7 @@ def parent_id(category):
 
 class MoodleProvider(LMSProvider):
     READ_FUNCTIONS = frozenset({"core_user_get_users", "core_course_get_courses",
-                                "core_course_get_categories", "core_course_get_contents"})
+                                "core_course_get_categories", "core_course_get_contents", "core_enrol_get_users_courses"})
     def __init__(self, base_url, api_key, mapping="academic", opener=None):
         self.endpoint = base_url + "/webservice/rest/server.php"
         self.api_key = api_key
@@ -102,6 +102,28 @@ class MoodleProvider(LMSProvider):
                         modules.extend({"source_id": source_id(m), "name": m["name"],
                                         "course_id": course["source_id"], "type": m["modname"]}
                                        for m in records(section["modules"]))
-            return {"users": users, "courses": courses, "modules": modules}
+            # This function returns active enrolments visible to the integration
+            # user, with one lookup per person rather than per module.
+            if len(users) > 5000:
+                raise LMSImportError("Moodle enrolment import exceeds the supported user limit.")
+            known_courses = {source_id(c) for c in moodle_courses}
+            enrolments = []
+            for user in users:
+                if user["suspended"]:
+                    continue
+                enrolled = records(self._call("core_enrol_get_users_courses", userid=int(user["source_id"]), returnusercount=0))
+                seen = set()
+                for course in enrolled:
+                    course_id = source_id(course)
+                    if course_id == "1":
+                        continue
+                    if course_id not in known_courses or course_id in seen:
+                        raise LMSImportError("Moodle returned invalid enrolment relationships; the import was not saved.")
+                    seen.add(course_id)
+                    enrolments.append({"user_source_id": user["source_id"], "course_source_id": course_id})
+                    if len(enrolments) > 500000:
+                        raise LMSImportError("Moodle enrolment import exceeds the size limit.")
+            return {"users": users, "courses": courses, "modules": modules,
+                    "enrolments": enrolments, "enrolments_available": True}
         except (KeyError, TypeError, AttributeError):
             raise LMSImportError("Moodle returned an unexpected data format; the import was not saved.") from None

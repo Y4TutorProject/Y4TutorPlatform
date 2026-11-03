@@ -27,6 +27,17 @@ def integration(services, monkeypatch):
         def get_college(self, college_id):
             college = dao.get_college(college_id)
             return college.to_dict() if college and college.status.value == "active" else None
+        def save_catalog(self, college_id, provider, source_url, courses, modules):
+            response = college_client.post(f"/internal/college/{college_id}/catalogs",
+                json={"provider": provider, "base_url": source_url, "courses": courses, "modules": modules},
+                headers={"X-College-Sync-Token": "test-service-token"})
+            assert response.status_code == 200, response.json
+            return response.json["catalog"]
+        def get_catalog(self, college_id, catalog_id):
+            response = college_client.get(f"/internal/college/{college_id}/catalogs/{catalog_id}",
+                headers={"X-College-Sync-Token": "test-service-token"})
+            assert response.status_code == 200
+            return response.json["catalog"]
     database = mongomock.MongoClient(tz_aware=True).lms_db
     auth = UsersAuthClient("http://users.invalid")
     monkeypatch.setattr(auth, "_request", college_client.application.extensions["users_auth"]._request)
@@ -41,6 +52,7 @@ def integration(services, monkeypatch):
         "core_user_get_users": {"users": [{"id": 10, "email": "member@college.test", "firstname": "Member"}], "warnings": []},
         "core_course_get_courses": [{"id": 1}, {"id": 20, "fullname": "Databases", "shortname": "DB4", "categoryid": 30}],
         "core_course_get_categories": [{"id": 30, "name": "Computing", "parent": 0}],
+        "core_enrol_get_users_courses": [{"id": 20}],
     }
     monkeypatch.setattr(MoodleProvider, "_call", lambda self, function, **kwargs: responses[function])
     payload = {"provider": "moodle", "base_url": "https://moodle.college.test", "api_key": "secret-test-token"}
@@ -56,7 +68,8 @@ def test_import_mapping_retry_and_catalog(integration):
     assert result.json["counts"] == {"users": 1, "courses": 1, "modules": 1}
     result = client.get(path + "/catalog", query_string={"base_url": payload["base_url"]}, headers=headers)
     catalog = result.json["catalog"]
-    assert catalog["modules"] == [{"source_id": "20", "course_id": "30", "name": "Databases", "code": "DB4"}]
+    assert catalog["modules"][0]["course_id"] == catalog["courses"][0]["id"]
+    assert catalog["modules"][0]["name"] == "Databases"
     assert catalog["courses"][0]["name"] == "Computing"
     assert catalog["users"][0]["source_id"] == "10"
     assert result.headers["Cache-Control"] == "no-store"
@@ -109,7 +122,8 @@ def test_optional_activity_mapping(integration):
     assert response.status_code == 200
     assert response.json["mapping"] == "activities"
     catalog = client.get(path + "/catalog", query_string={"base_url": payload["base_url"]}, headers=headers).json["catalog"]
-    assert catalog["modules"] == [{"source_id": "40", "course_id": "20", "name": "Quiz", "type": "quiz"}]
+    assert catalog["modules"][0]["course_id"] == catalog["courses"][0]["id"]
+    assert catalog["modules"][0]["name"] == "Quiz"
 
 
 def test_unlisted_public_source_is_accepted_when_allowlist_is_empty(integration):
@@ -173,7 +187,9 @@ def test_add_provider_without_changing_import_or_storage(integration):
         def fetch_catalog(self):
             return {"users": [], "courses": [], "modules": []}
     service.providers["blackboard"] = BlackboardStub
-    result = service.import_catalog("college-2", {"provider": "blackboard", "base_url": "https://moodle.college.test", "api_key": "key"})
+    college = College(uuid.uuid4(), "Blackboard College", admin_id="blackboard-admin")
+    dao.add_college(college)
+    result = service.import_catalog(str(college.college_id), {"provider": "blackboard", "base_url": "https://moodle.college.test", "api_key": "key"})
     assert result["provider"] == "blackboard"
     assert client.application.extensions["lms_database"].lms_imports.count_documents({}) == 1
     assert service.store.get("college-1", "blackboard", result["base_url"]) is None
@@ -208,3 +224,30 @@ def test_moodle_json_exception_is_sanitized():
     with pytest.raises(LMSImportError) as error:
         MoodleProvider("https://moodle.college.test", "private-key", opener=Opener())._call("core_course_get_courses")
     assert "private-key" not in str(error.value)
+
+
+def test_enrolment_api_is_read_for_each_active_moodle_user(integration, monkeypatch):
+    _, _, _, service, payload, path, _, responses = integration
+    responses['core_user_get_users']['users'].append({'id': 11, 'email': 'paused@college.test', 'suspended': True})
+    calls = []
+    def read(self, function, **kwargs):
+        calls.append((function, kwargs))
+        return responses[function]
+    monkeypatch.setattr(MoodleProvider, '_call', read)
+    catalog = service.import_catalog(path.split('/')[2], payload)
+    assert [(fn, args) for fn, args in calls if fn == 'core_enrol_get_users_courses'] == [
+        ('core_enrol_get_users_courses', {'userid': 10, 'returnusercount': 0})]
+    assert catalog['enrolments_available'] is True
+    assert len(catalog['enrolments']) == 1
+
+
+@pytest.mark.parametrize('enrolled', [[{'id': 999}], [{'id': 20}, {'id': 20}], [{'id': '20'}], {'warnings': []}])
+def test_bad_enrolment_response_preserves_previous_import(integration, enrolled):
+    _, _, _, service, payload, path, _, responses = integration
+    college_id = path.split('/')[2]
+    service.import_catalog(college_id, payload)
+    previous = service.store.collection.find_one()
+    responses['core_enrol_get_users_courses'] = enrolled
+    with pytest.raises(LMSImportError):
+        service.import_catalog(college_id, payload)
+    assert service.store.collection.find_one() == previous
