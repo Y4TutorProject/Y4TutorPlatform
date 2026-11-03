@@ -145,6 +145,22 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./notification_svc/notification_db_data:/data/db
+
+  notification_svc:
+    container_name: notification_svc
+    build:
+      context: ./notification_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5053:5000"
+    environment:
+      - MONGO_URI=mongodb://admin:password@notification_db:27017/?authSource=admin
+      - MONGO_DB_NAME=notification_db
+      # - NOTIFICATION_API_KEY=${NOTIFICATION_API_KEY:?Set NOTIFICATION_API_KEY in .env}
+    depends_on:
+      notification_db:
+        condition: service_healthy
+
   mongo-express:
     container_name: mongo-express
     image: mongo-express:latest

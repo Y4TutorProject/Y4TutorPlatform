@@ -1,0 +1,26 @@
+<div>
+    <!-- generate a template for a simple notification page -->
+    <h1>Notifications</h1>
+    <ul>
+     
+    </ul>
+
+    <script>
+        fetch('http://notification_svc:5053/api/notifications', {
+            headers: {
+                // 'X-User-ID': '{{ user_id }}'
+                'X-User-ID': '1'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const ul = document.querySelector('ul');
+            data.notifications.forEach(notification => {
+                const li = document.createElement('li');
+                li.textContent = notification.message;
+                ul.appendChild(li);
+            });
+        })
+        .catch(error => console.error('Error fetching notifications:', error));
+    </script>
+</div>

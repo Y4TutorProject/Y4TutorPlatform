@@ -6,7 +6,10 @@ from bson.errors import InvalidId
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 
-from ..Models.NotificationStore import NotificationStore
+try:
+    from ..Models.NotificationStore import NotificationStore
+except ImportError:
+    from Models.NotificationStore import NotificationStore
 
 
 def _now() -> datetime:
@@ -120,6 +123,16 @@ class MongoNotificationDAO(NotificationStore):
         result = self.col.update_one(
             {"_id": oid, "recipient_id": str(user_id), "read_at": None},
             {"$set": {"read_at": _now()}},
+        )
+        return result.modified_count > 0
+
+    def mark_unread(self, notification_id, user_id):
+        oid = _to_object_id(notification_id)
+        if oid is None:
+            return False
+        result = self.col.update_one(
+            {"_id": oid, "recipient_id": str(user_id), "read_at": {"$ne": None}},
+            {"$set": {"read_at": None}},
         )
         return result.modified_count > 0
 
