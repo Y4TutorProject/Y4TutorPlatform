@@ -224,6 +224,37 @@ def handle_message(payload):
     for member_id in set(chat.members):
         socketio.emit("message", out, to=f"user:{_id(member_id)}")
 
+
+@socketio.on('typing')
+def handle_typing(payload):
+    if not isinstance(payload, dict):
+        return
+
+    chat_id = _id(payload.get("chatId")) if payload.get("chatId") is not None else None
+    user_id = session.get("user")
+    is_typing = payload.get("isTyping")
+    chat = dao.get_chat(chat_id) if chat_id is not None else None
+    if (
+        chat is None
+        or user_id is None
+        or not isinstance(is_typing, bool)
+        or user_id not in {_id(member_id) for member_id in chat.members}
+    ):
+        return
+
+    typing_update = {
+        "chatId": chat_id,
+        "senderId": _id(user_id),
+        "senderUsername": session.get("usernames", {}).get(
+            _id(user_id), _id(user_id)
+        ),
+        "isTyping": is_typing,
+    }
+    for member_id in set(chat.members):
+        if _id(member_id) != _id(user_id):
+            socketio.emit("typing", typing_update, to=f"user:{_id(member_id)}")
+
+
 @socketio.on('connect')
 def handle_connect(auth):
     user_id = _id(auth.get("userId")) if auth and auth.get("userId") is not None else None

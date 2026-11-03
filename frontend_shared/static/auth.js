@@ -241,7 +241,7 @@ async function setupLMSImport(collegeId) {
 
 switch (document.body.dataset.page) {
   case "login":
-    setupForm("login-form", "/api/users", "/auth/login", "/account");
+    setupForm("login-form", "/api/users", "/auth/login", "/dashboard");
     if (new URLSearchParams(window.location.search).get("verified") === "1") {
       showStatus("Email verified. Sign in to continue.");
     }

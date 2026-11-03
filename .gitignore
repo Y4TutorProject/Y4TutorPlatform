@@ -8,6 +8,7 @@ users_svc/users_db_data/
 college_svc/college_db_data/
 lms_svc/lms_db_data/
 messaging_svc/messaging_db_data/
+notification_svc/notification_db_data/
 /Moodle/moodle
 /Moodle/moodledb
 /Moodle/assets

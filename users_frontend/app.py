@@ -26,15 +26,10 @@ def create_app(config=None):
         app.config.update(config)
     app.extensions["users_opener"] = build_opener(NoRedirect())
 
-    @app.get("/login")
-    def login():
-        return render_template("login.html")
-
-    @app.get("/account")
-    def account():
+    def authenticated_user():
         session_cookie = request.cookies.get("tutor_session")
         if not session_cookie:
-            return redirect("/login")
+            return None
         cookie = SimpleCookie()
         cookie["tutor_session"] = session_cookie
         upstream = Request(
@@ -48,12 +43,33 @@ def create_app(config=None):
         except HTTPError as error:
             error.close()
             if error.code == 401:
-                return redirect("/login")
+                return None
             abort(503)
         except (URLError, OSError, ValueError, AttributeError):
             abort(503)
+        return user if isinstance(user, dict) else None
+
+    @app.get("/login")
+    def login():
+        if authenticated_user():
+            return redirect("/dashboard")
+        return render_template("login.html")
+
+    @app.get("/account")
+    def account():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
         if not isinstance(user, dict) or user.get("email_verified") is not True:
             abort(503)
+        session_cookie = request.cookies["tutor_session"]
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = session_cookie
+        upstream = Request(
+            app.config["USERS_API_URL"].rstrip("/") + "/users/me",
+            headers={"Cookie": cookie.output(header="").strip(),
+                     "User-Agent": request.headers.get("User-Agent", "")},
+        )
         can_manage_college = "college_admin" in (user.get("roles") or []) and bool(user.get("college_id"))
         is_student = "student" in (user.get("roles") or [])
         moodle = None
