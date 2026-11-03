@@ -5,4 +5,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 users_svc/users_db_data/
+college_svc/college_db_data/
 messaging_svc/messaging_db_data/

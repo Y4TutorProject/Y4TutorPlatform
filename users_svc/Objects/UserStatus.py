@@ -5,3 +5,4 @@ class UserStatus(Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     MARKED_FOR_DELETION = "marked_for_deletion"
+    PENDING_VERIFICATION = "pending_verification"

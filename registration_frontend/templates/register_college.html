@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Register your college{% endblock %}
+{% block page %}register-college{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main %}
+<main class="auth-screen" aria-labelledby="form-title">
+  <h1 id="form-title">Register your college</h1>
+  <div class="signin-content">
+    <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1">Checking your administrator account…</p>
+    <form id="college-form" method="post" action="/register-college" hidden>
+      <div class="auth-field">
+        <label class="form-label" for="college-name">College name</label>
+        <input class="form-control" id="college-name" name="name" maxlength="200" required>
+      </div>
+      <div class="auth-field">
+        <label class="form-label" for="student-domain">Student email domain</label>
+        <input class="form-control" id="student-domain" name="domain" placeholder="students.college.ie" maxlength="253" aria-describedby="domain-help" required>
+        <p id="domain-help" class="form-text">Enter the part after @ in your students' email addresses.</p>
+      </div>
+      <button class="btn btn-dark auth-submit" type="submit">Register college</button>
+    </form>
+    <p class="auth-switch"><a href="/account">Your account</a></p>
+  </div>
+</main>
+{% endblock %}

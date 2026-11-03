@@ -9,10 +9,11 @@ from werkzeug.security import check_password_hash
 from registration_svc import create_app as create_registration_app
 from users_svc import create_app
 from users_svc.Objects.UserStatus import UserStatus
+from support import MemoryMailer, ExampleColleges, COLLEGE_ID, verify_latest
 
 
 PASSWORD = "a long test password"
-ACCOUNT = {"username": "student_one", "email": "student@example.com", "password": PASSWORD}
+ACCOUNT = {"username": "student_one", "email": "student@example.com", "password": PASSWORD, "college_id": COLLEGE_ID}
 
 
 @pytest.fixture
@@ -38,10 +39,13 @@ def post(client, path, data):
 
 @pytest.fixture
 def registration_app(app):
-    return create_registration_app({
+    mailer = MemoryMailer()
+    registration = create_registration_app({
         "TESTING": True, "SECRET_KEY": "registration-test-secret-" * 2,
         "SESSION_COOKIE_SECURE": False,
-    }, dao=app.extensions["users_dao"])
+    }, dao=app.extensions["users_dao"], college_client=ExampleColleges(), mailer=mailer)
+    registration.extensions["test_mailer"] = mailer
+    return registration
 
 
 @pytest.fixture
@@ -50,9 +54,12 @@ def registration_client(registration_app):
 
 
 @pytest.fixture
-def signup(registration_client):
+def signup(registration_client, registration_app):
     def register(**overrides):
-        return post(registration_client, "/auth/signup", {**ACCOUNT, **overrides})
+        response = post(registration_client, "/auth/signup", {**ACCOUNT, **overrides})
+        if response.status_code == 201:
+            assert verify_latest(registration_client, registration_app.extensions["test_mailer"]).status_code == 200
+        return response
     return register
 
 
@@ -67,7 +74,7 @@ def test_signup_hashes_password_and_preserves_identity(app, client, signup):
     assert response.status_code == 201
     user = response.json["user"]
     assert user["roles"] == ["student"]
-    assert user["status"] == "active"
+    assert user["status"] == "pending_verification"
     assert "password" not in user and "passhash" not in user
     dao = app.extensions["users_dao"]
     stored = dao.collection.find_one({"id": user["id"]})
@@ -85,22 +92,23 @@ def test_same_password_has_distinct_salted_hashes(app, client, signup):
     assert len(hashes) == 2 and hashes[0] != hashes[1]
 
 
-def test_signup_without_username_generates_one(registration_client, client):
-    data = {"email": ACCOUNT["email"], "password": PASSWORD}
+def test_signup_without_username_generates_one(registration_client, registration_app, client):
+    data = {"email": ACCOUNT["email"], "password": PASSWORD, "college_id": COLLEGE_ID}
     response = post(registration_client, "/auth/signup", data)
     assert response.status_code == 201
     user = response.json["user"]
     assert user["username"].startswith("user_")
     assert user["roles"] == ["student"]
-    assert user["college_id"] is None
+    assert user["college_id"] == COLLEGE_ID
+    assert login(client).status_code == 401
+    assert verify_latest(registration_client, registration_app.extensions["test_mailer"]).status_code == 200
     assert login(client).status_code == 200
 
 
 @pytest.mark.parametrize("account_type", ["tutor", "admin", "", None, [], {}])
 def test_signup_cannot_choose_account_type(signup, account_type):
     response = signup(account_type=account_type)
-    assert response.status_code == 201
-    assert response.json["user"]["roles"] == ["student"]
+    assert response.status_code == 400
 
 
 @pytest.mark.parametrize("overrides", [
@@ -123,6 +131,7 @@ def test_signup_validation(client, field, value, signup):
 
 def test_login_me_and_logout(client, signup):
     user = signup().json["user"]
+    user.update(status="active", email_verified=True)
     response = login(client, email=" STUDENT@EXAMPLE.COM ")
     assert response.status_code == 200
     assert response.json["user"] == user
@@ -238,3 +247,89 @@ def test_registration_secret_required(monkeypatch):
     monkeypatch.delenv("SECRET_KEY", raising=False)
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         create_registration_app()
+
+
+def test_student_signup_requires_college(registration_client):
+    for value in [None, ""]:
+        response = post(registration_client, "/auth/signup", {**ACCOUNT, "college_id": value})
+        assert response.status_code == 400
+
+
+def test_student_email_must_match_college_domain(registration_client):
+    response = post(registration_client, "/auth/signup", {**ACCOUNT, "email": "student@unrelated.test"})
+    assert response.status_code == 400
+
+
+def test_pending_email_cannot_login_and_is_not_returned_as_token(app, client, registration_app, registration_client):
+    response = post(registration_client, "/auth/signup", ACCOUNT)
+    assert response.status_code == 201
+    assert response.json["user"]["email_verified"] is False
+    assert "token" not in response.json
+    assert login(client).status_code == 401
+    record = app.extensions["users_dao"].collection.find_one({"email": ACCOUNT["email"]})
+    assert len(record["verification_hash"]) == 64
+    assert verify_latest(registration_client, registration_app.extensions["test_mailer"]).status_code == 200
+    assert login(client).status_code == 200
+
+
+def test_email_verification_token_is_single_use(registration_app, registration_client):
+    post(registration_client, "/auth/signup", ACCOUNT)
+    mailer = registration_app.extensions["test_mailer"]
+    assert verify_latest(registration_client, mailer).status_code == 200
+    assert verify_latest(registration_client, mailer).status_code == 400
+
+
+def test_email_verification_token_expires(registration_app, registration_client, client):
+    post(registration_client, "/auth/signup", ACCOUNT)
+    registration_app.extensions["email_verification"].max_age = -1
+    assert verify_latest(registration_client, registration_app.extensions["test_mailer"]).status_code == 400
+    assert login(client).status_code == 401
+
+
+def test_invalid_verification_token_does_not_activate_account(registration_client, client):
+    post(registration_client, "/auth/signup", ACCOUNT)
+    assert post(registration_client, "/auth/verify-email", {"token": "forged"}).status_code == 400
+    assert login(client).status_code == 401
+
+
+def test_college_admin_creates_account_without_selecting_college(registration_client, registration_app):
+    response = post(registration_client, "/auth/signup", {
+        "email": "administrator@college.test", "password": PASSWORD,
+        "account_type": "college_admin", "roles": ["super_admin"], "email_verified": True,
+    })
+    assert response.status_code == 201
+    assert response.json["user"]["roles"] == ["college_admin"]
+    assert response.json["user"]["college_id"] is None
+    assert response.json["user"]["email_verified"] is False
+    assert verify_latest(registration_client, registration_app.extensions["test_mailer"]).status_code == 200
+
+
+def test_resend_verification_rotates_nonce_and_throttles(app, registration_app, registration_client):
+    post(registration_client, "/auth/signup", ACCOUNT)
+    mailer = registration_app.extensions["test_mailer"]
+    original_link = mailer.messages[0]
+    assert post(registration_client, "/auth/resend-verification", {"email": ACCOUNT["email"]}).status_code == 200
+    assert len(mailer.messages) == 1
+    app.extensions["users_dao"].collection.update_one({"email": ACCOUNT["email"]}, {"$set": {"verification_sent_at": 0}})
+    post(registration_client, "/auth/resend-verification", {"email": ACCOUNT["email"]})
+    assert len(mailer.messages) == 2
+    newest = mailer.messages[-1]
+    mailer.messages.append(original_link)
+    assert verify_latest(registration_client, mailer).status_code == 400
+    mailer.messages.append(newest)
+    assert verify_latest(registration_client, mailer).status_code == 200
+
+
+def test_smtp_failure_leaves_recoverable_pending_account(registration_app, registration_client, app, monkeypatch):
+    from registration_svc.verification import MailDeliveryError
+    mailer = registration_app.extensions["test_mailer"]
+    original = mailer.send_verification
+    def fail(*args):
+        raise MailDeliveryError()
+    monkeypatch.setattr(mailer, "send_verification", fail)
+    assert post(registration_client, "/auth/signup", ACCOUNT).status_code == 503
+    record = app.extensions["users_dao"].collection.find_one({"email": ACCOUNT["email"]})
+    assert record["status"] == "pending_verification"
+    monkeypatch.setattr(mailer, "send_verification", original)
+    post(registration_client, "/auth/resend-verification", {"email": ACCOUNT["email"]})
+    assert verify_latest(registration_client, mailer).status_code == 200

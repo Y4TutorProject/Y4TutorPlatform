@@ -33,3 +33,10 @@
   .auth-field { margin-bottom: 32px; }
   .auth-submit, #login-form .auth-submit { margin: 40px auto 0; }
 }
+
+.signup-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.signup-choice { padding: 28px; border: 1px solid #ded5e5; border-radius: 12px; background: #f5eff9; }
+.signup-choice p { color: #68616d; font-size: 14px; }
+#signup-form.admin-signup { display: block; max-width: 408px; margin: auto; }
+#signup-form.admin-signup .auth-submit, #college-form .auth-submit, #resend-form .auth-submit { margin: 32px auto 0; }
+@media (max-width: 767px) { .signup-choices { grid-template-columns: 1fr; } }
