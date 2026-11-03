@@ -14,6 +14,7 @@ services:
       - users_svc
       - registration_svc
       - college_svc
+      - dashboard_svc
 
   users_frontend:
     container_name: users_frontend
@@ -149,6 +150,31 @@ services:
       messaging_db:
         condition: service_healthy
 
+  dashboard_svc:
+    container_name: dashboard_svc
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "5055:5000"
+    environment:
+      - FLASK_ENV=development
+      - SECRET_KEY=${SECRET_KEY}
+      - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - USERS_API_URL=http://users_svc:5000
+      - COLLEGE_API_URL=http://college_svc:5000
+      - MESSAGING_API_URL=http://messaging_svc:5000
+      - LMS_API_URL=http://lms_svc:5000
+    depends_on:
+      users_svc:
+        condition: service_started
+      college_svc:
+        condition: service_started
+      messaging_svc:
+        condition: service_started
+      lms_svc:
+        condition: service_started
   matching_svc:
     container_name: matching_svc
     build:
