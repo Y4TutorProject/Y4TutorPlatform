@@ -11,6 +11,44 @@
       <div><dt>Email address</dt><dd class="text-break" id="account-email"></dd></div>
     </dl>
     <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
+    <section id="lms-settings" class="mt-4" hidden aria-labelledby="lms-title">
+      <h2 id="lms-title" class="h5">College system connection</h2>
+      <p>Imported users are directory records. They must register and verify their
+        email to sign in. Your API key is encrypted and saved for automatic updates.</p>
+      <form id="lms-form">
+        <div class="mb-3">
+          <label for="lms-provider" class="form-label">College system</label>
+          <select id="lms-provider" name="provider" class="form-select" required>
+            <option value="">Select your college system</option>
+            <option value="moodle">Moodle</option>
+            <option value="blackboard">Blackboard</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <p id="lms-provider-help" class="form-text" role="status" hidden>This system's connector is not available yet.</p>
+        <fieldset id="moodle-settings" hidden disabled>
+          <legend class="h6">Moodle connection</legend>
+          <p>Moodle courses become academic modules. Moodle categories become degree programmes.</p>
+        <div class="mb-3">
+          <label for="lms-url" class="form-label">Moodle base URL</label>
+          <input id="lms-url" name="base_url" type="url" class="form-control" placeholder="https://moodle.college.ie" required maxlength="2048">
+          <p class="form-text">Use the public HTTPS address of your college's Moodle site.</p>
+        </div>
+        <div class="mb-3">
+          <label for="lms-key" class="form-label">Moodle API key</label>
+          <input id="lms-key" name="api_key" type="password" class="form-control" autocomplete="off" maxlength="4096" aria-describedby="lms-key-help">
+          <p id="lms-key-help" class="form-text">Required for a new connection. Leave blank to keep the saved key.</p>
+        </div>
+        <div class="form-check mb-3">
+          <input id="lms-enabled" name="enabled" type="checkbox" class="form-check-input" checked>
+          <label for="lms-enabled" class="form-check-label">Enable nightly synchronization</label>
+        </div>
+        <button class="btn btn-primary" type="submit">Save connection</button>
+        <button class="btn btn-secondary" type="button" id="lms-sync-button" disabled>Sync now</button>
+        </fieldset>
+      </form>
+      <p id="lms-status" class="mt-3" role="status" aria-live="polite"></p>
+    </section>
   </div>
   <noscript><p class="alert alert-danger mt-3">Enable JavaScript to view your account.</p></noscript>
   <p class="mt-3 mb-0"><a href="/login">Back to sign in</a></p>

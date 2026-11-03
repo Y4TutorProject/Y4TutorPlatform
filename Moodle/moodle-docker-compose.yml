@@ -1,0 +1,108 @@
+services:
+  webserver:
+    image: tutorplatform-moodle:local
+    build:
+      context: .
+      args:
+        MOODLE_DOCKER_PHP_VERSION: ${MOODLE_DOCKER_PHP_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8585:80"
+    volumes:
+      - "${MOODLE_DOCKER_WWWROOT}:/var/www/html"
+      - moodle_data:/var/www/moodledata
+      - type: bind
+        source: ${ASSETDIR}/web/apache2_faildumps.conf
+        target: /etc/apache2/conf-enabled/moodle-faildump.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      default:
+      testcollege:
+        aliases:
+          - moodle
+
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html/public
+      MOODLE_DOCKER_RUNNING: 1
+      MOODLE_DOCKER_DBNAME: moodle
+      MOODLE_DOCKER_DBUSER: moodle
+      MOODLE_DOCKER_DBPASS: "${MOODLE_DB_PASSWORD:?Set MOODLE_DB_PASSWORD in MoodleDocker/.env}"
+      MOODLE_DOCKER_BROWSER: firefox
+      MOODLE_DOCKER_WEB_HOST: "${MOODLE_DOCKER_WEB_HOST}"
+      MOODLE_DOCKER_TIMEOUT_FACTOR: "${MOODLE_DOCKER_TIMEOUT_FACTOR}"
+  exttests:
+    image: moodlehq/moodle-exttests
+    volumes:
+      - type: bind
+        source: ${ASSETDIR}/exttests/apache2_ports.conf
+        target: /etc/apache2/ports.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ASSETDIR}/exttests/apache2.conf
+        target: /etc/apache2/sites-enabled/000-default.conf
+        read_only: true
+        bind:
+          create_host_path: false
+  
+  selenium:
+    image: "selenium/standalone-firefox${MOODLE_DOCKER_SELENIUM_SUFFIX:-}:${MOODLE_DOCKER_BROWSER_TAG}"
+    volumes:
+      - "${MOODLE_DOCKER_WWWROOT}:/var/www/html:ro"
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_ROOT_PASSWORD: "${MOODLE_DB_ROOT_PASSWORD:?Set MOODLE_DB_ROOT_PASSWORD in .env}"
+      MARIADB_DATABASE: moodle
+      MARIADB_USER: moodle
+      MARIADB_PASSWORD: "${MOODLE_DB_PASSWORD:?Set MOODLE_DB_PASSWORD in .env}"
+    volumes:
+      - "${MOODLE_DOCKER_DBROOT}:/var/lib/mysql"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - webserver
+    environment:
+      MOODLE_DOCKER_WEB_HOST: ${MOODLE_DOCKER_WEB_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - type: bind
+        source: ./caddy/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      default:
+      testcollege:
+        aliases:
+          - ${MOODLE_DOCKER_WEB_HOST}
+
+volumes:
+  moodle_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  testcollege:
+    external: true
+    name: testcollege

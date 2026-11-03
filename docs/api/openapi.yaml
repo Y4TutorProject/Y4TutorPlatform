@@ -388,6 +388,203 @@ paths:
               example: 'ok
 
                 '
+  /api/lms/college/{college_id}/lms/import:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags: [Colleges]
+      summary: Import users, programmes and modules from a college LMS
+      description: Requires ownership of an active college and the college_admin role. Moodle categories map to programmes and Moodle courses to academic modules by default. API keys are used for this request only. Complete imports atomically replace the previous catalog for this college and source.
+      operationId: importCollegeLms
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_url, api_key]
+              properties:
+                provider:
+                  type: string
+                  enum: [moodle]
+                  default: moodle
+                base_url:
+                  type: string
+                  format: uri
+                  description: Public HTTPS LMS base URL on port 443, including any Moodle subpath. Optional operator allowlist can restrict hosts; nonpublic destinations are always blocked.
+                api_key:
+                  type: string
+                  writeOnly: true
+                  minLength: 1
+                  maxLength: 4096
+                mapping:
+                  type: string
+                  enum: [academic, activities]
+                  default: academic
+      responses:
+        '200':
+          description: Catalog saved; response contains provider, base_url, mapping, imported_at and counts for users, courses and modules.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Administrator role or active college ownership required.
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '502':
+          description: LMS request failed or the returned catalog was invalid or exceeded the size limit. Previous catalog is preserved.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/lms/college/{college_id}/lms/catalog:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags: [Colleges]
+      summary: Read the last successful LMS import for an owned college
+      operationId: getCollegeLmsCatalog
+      description: Requires the users session and CSRF token, including for this read. Contains directory data and must not be cached.
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      parameters:
+      - name: provider
+        in: query
+        schema:
+          type: string
+          enum: [moodle]
+          default: moodle
+      - name: base_url
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uri
+      responses:
+        '200':
+          description: Catalog object with college_id, provider, base_url, mapping, imported_at and users, courses and modules arrays. Records use source_id; module course_id refers to a programme source_id in academic mapping.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Administrator role or active college ownership required.
+        '404':
+          description: No successful import for this college and source.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/lms/college/{college_id}/lms/connection:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags: [Colleges]
+      summary: Read saved LMS connection and synchronization status
+      operationId: getLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      responses:
+        '200':
+          description: Connection or null. Credentials are never returned. Includes enabled, next_sync_at, last_attempt_at, last_success_at, counts, last_error, timezone and sync_hour.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '503':
+          description: LMS dependency unavailable.
+    put:
+      tags: [Colleges]
+      summary: Save an encrypted persistent LMS connection for nightly sync
+      operationId: saveLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_url]
+              properties:
+                provider:
+                  type: string
+                  default: moodle
+                base_url:
+                  type: string
+                  format: uri
+                api_key:
+                  type: string
+                  writeOnly: true
+                  description: Required for a new source. Omit or leave blank to keep its saved credential.
+                mapping:
+                  type: string
+                  enum: [academic]
+                  default: academic
+                enabled:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Connection saved. Enabled connections are queued for an initial sync within the worker polling interval, then nightly.
+        '400':
+          description: Invalid settings or CSRF.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '409':
+          description: Synchronization currently holds the connection lease.
+        '503':
+          description: LMS dependency unavailable.
+  /api/lms/college/{college_id}/lms/sync:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags: [Colleges]
+      summary: Synchronize now using saved LMS credentials
+      operationId: syncLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      responses:
+        '200':
+          description: Catalog updated and next nightly synchronization scheduled. Returns sanitized connection status.
+        '400':
+          description: Invalid settings or CSRF.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '409':
+          description: No enabled connection or synchronization is already running.
+        '502':
+          description: Upstream error. Previous successful catalog is preserved; retry due in 15 minutes.
+        '503':
+          description: LMS dependency unavailable.
 components:
   securitySchemes:
     UsersSession:

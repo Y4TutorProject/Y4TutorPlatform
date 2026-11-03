@@ -117,6 +117,9 @@ async function loadAccount() {
     document.getElementById("account-email").textContent = user.email;
     statusElement.hidden = true;
     document.getElementById("account-details").hidden = false;
+    if ((user.roles || []).includes("college_admin") && user.college_id) {
+      setupLMSImport(user.college_id);
+    }
   } catch (error) {
     if (error.status === 401) window.location.replace("/login");
     else showStatus(errorMessage(error), true);
@@ -131,6 +134,107 @@ async function loadAccount() {
       if (error.status === 401) window.location.replace("/login");
       else showStatus(errorMessage(error), true);
       button.disabled = false;
+    }
+  });
+}
+
+async function setupLMSImport(collegeId) {
+  document.getElementById("lms-settings").hidden = false;
+  const form = document.getElementById("lms-form");
+  const status = document.getElementById("lms-status");
+  const saveButton = form.querySelector("button[type=submit]");
+  const syncButton = document.getElementById("lms-sync-button");
+  const moodleSettings = document.getElementById("moodle-settings");
+  const providerHelp = document.getElementById("lms-provider-help");
+  const base = `/api/lms/college/${encodeURIComponent(collegeId)}/lms`;
+  let saved = false;
+  let enabled = false;
+  let sessionExpired = false;
+  function selectProvider() {
+    const provider = form.elements.provider.value;
+    moodleSettings.hidden = provider !== "moodle";
+    moodleSettings.disabled = provider !== "moodle";
+    providerHelp.hidden = !provider || provider === "moodle";
+    if (provider !== "moodle") {
+      form.elements.api_key.value = "";
+      status.textContent = "";
+    }
+  }
+  form.elements.provider.addEventListener("change", selectProvider);
+  selectProvider();
+  async function call(path, method = "GET", data) {
+    try {
+      const { csrf_token } = await requestJSON("/api/users/auth/csrf");
+      return await requestJSON(base + path, {
+        method, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf_token },
+        ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+      });
+    } catch (error) {
+      if (error.status === 401) {
+        sessionExpired = true;
+        saveButton.disabled = syncButton.disabled = true;
+        form.elements.api_key.value = "";
+        error.message = "Your session has expired. Sign in again to manage your Moodle connection.";
+        window.location.replace("/login");
+      }
+      throw error;
+    }
+  }
+  function display(connection) {
+    saved = Boolean(connection);
+    enabled = Boolean(connection && connection.enabled);
+    syncButton.disabled = !enabled;
+    if (!connection) {
+      status.textContent = "No college system connected yet.";
+      return;
+    }
+    form.elements.provider.value = connection.provider;
+    selectProvider();
+    form.elements.base_url.value = connection.base_url;
+    form.elements.enabled.checked = connection.enabled;
+    const schedule = connection.enabled
+      ? `Next sync: ${new Date(connection.next_sync_at).toLocaleString("en-IE", { timeZone: connection.timezone })} (${connection.timezone}).`
+      : "Nightly synchronization is paused.";
+    const last = connection.last_success_at
+      ? `Last successful sync: ${new Date(connection.last_success_at).toLocaleString("en-IE", { timeZone: connection.timezone })}.`
+      : "Awaiting first successful sync.";
+    const counts = connection.counts
+      ? `${connection.counts.users} users, ${connection.counts.courses} programmes, ${connection.counts.modules} modules.` : "";
+    status.textContent = [schedule, last, counts, connection.last_error].filter(Boolean).join(" ");
+  }
+  try {
+    display((await call("/connection")).connection);
+  } catch (error) {
+    status.textContent = errorMessage(error);
+  }
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (form.elements.provider.value !== "moodle" || saveButton.disabled || !form.reportValidity()) return;
+    saveButton.disabled = syncButton.disabled = true;
+    const data = { provider: form.elements.provider.value, base_url: form.elements.base_url.value.trim(),
+      api_key: form.elements.api_key.value, enabled: form.elements.enabled.checked, mapping: "academic" };
+    form.elements.api_key.value = "";
+    status.textContent = "Saving connection…";
+    try {
+      display((await call("/connection", "PUT", data)).connection);
+    } catch (error) {
+      status.textContent = errorMessage(error);
+    } finally {
+      saveButton.disabled = sessionExpired;
+      syncButton.disabled = sessionExpired || !saved || !enabled;
+    }
+  });
+  syncButton.addEventListener("click", async () => {
+    if (syncButton.disabled) return;
+    saveButton.disabled = syncButton.disabled = true;
+    status.textContent = "Synchronizing college data…";
+    try {
+      display((await call("/sync", "POST", {})).connection);
+    } catch (error) {
+      status.textContent = errorMessage(error);
+    } finally {
+      saveButton.disabled = sessionExpired;
+      syncButton.disabled = sessionExpired || !saved || !enabled;
     }
   });
 }
