@@ -113,7 +113,7 @@ services:
     depends_on:
       messaging_db:
         condition: service_healthy
-
+  
   messaging_db:
     container_name: messaging_db
     image: mongo:latest
@@ -145,6 +145,25 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./notification_svc/notification_db_data:/data/db
+  
+  student_dashboard_svc:
+    container_name: student_dashboard_svc
+    build:
+      context: ./student_dashboard_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5053:5000"
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@notification_db:27017/?authSource=admin
+      - SECRET_KEY=${SECRET_KEY}
+      - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - MONGO_DB_NAME=notification_db
+      - MONGO_NOTIFICATION_COLLECTION_NAME=notifications
+    depends_on:
+      notification_db:
+        condition: service_healthy
   mongo-express:
     container_name: mongo-express
     image: mongo-express:latest
