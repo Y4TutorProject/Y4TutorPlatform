@@ -1,3 +1,4 @@
 -r requirements.txt
+-r ../lms_svc/requirements.txt
 pytest>=8,<10
 mongomock>=4.3,<5

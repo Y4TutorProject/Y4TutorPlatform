@@ -1,0 +1,889 @@
+openapi: 3.1.0
+info:
+  title: TutorPlatform API
+  version: 1.0.0
+  description: Users, registration and colleges through Nginx. POST bodies are limited to 16 KiB. New
+    accounts require email verification.
+servers:
+- url: http://localhost:8080
+  description: Local Nginx gateway
+tags:
+- name: Registration
+- name: Users
+- name: Colleges
+- name: Gateway
+security: []
+paths:
+  /api/registration/auth/csrf:
+    get:
+      tags:
+      - Registration
+      summary: Get a registration CSRF token
+      operationId: getRegistrationCsrf
+      responses:
+        '200':
+          $ref: '#/components/responses/Csrf'
+  /api/registration/auth/signup:
+    post:
+      tags:
+      - Registration
+      summary: Create an account and send verification email
+      operationId: signup
+      responses:
+        '201':
+          description: Pending account created. Verify email before signing in; signup does not start
+            a users session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - RegistrationSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/StudentSignup'
+              - $ref: '#/components/schemas/CollegeAdminSignup'
+            examples:
+              student:
+                value:
+                  email: student@students.college.ie
+                  password: a long unique password
+                  account_type: student
+                  college_id: 4b26466a-a88e-4b45-aa10-cb2b5c744e21
+              collegeAdministrator:
+                value:
+                  email: administrator@college.ie
+                  password: a long unique password
+                  account_type: college_admin
+      description: Raw roles, status and email_verified fields are ignored. On email delivery failure,
+        a pending account may already exist; use resend-verification.
+  /api/registration/auth/verify-email:
+    post:
+      tags:
+      - Registration
+      summary: Verify email and activate an account
+      operationId: verifyEmail
+      responses:
+        '200':
+          description: Account activated. Sign in through the users API next.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - RegistrationSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  writeOnly: true
+              required:
+              - token
+      description: Signed verification tokens expire after one hour and can be used once. The email link
+        carries the token in its URL fragment.
+  /api/registration/auth/resend-verification:
+    post:
+      tags:
+      - Registration
+      summary: Request another verification email
+      operationId: resendVerification
+      responses:
+        '200':
+          description: Generic confirmation, including unknown, already verified or cooldown-limited accounts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - RegistrationSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+              - email
+      description: Pending accounts have a one-minute resend cooldown. A newly issued link replaces the
+        previous verification token.
+  /api/users/auth/csrf:
+    get:
+      tags:
+      - Users
+      summary: Get a users CSRF token
+      operationId: getUsersCsrf
+      responses:
+        '200':
+          $ref: '#/components/responses/Csrf'
+  /api/users/auth/login:
+    post:
+      tags:
+      - Users
+      summary: Sign in
+      operationId: login
+      responses:
+        '200':
+          description: Verified active user signed in. Keep the new cookie and CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          headers:
+            Set-Cookie:
+              description: New signed tutor_session cookie.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /api/users/auth/logout:
+    post:
+      tags:
+      - Users
+      summary: Sign out
+      operationId: logout
+      responses:
+        '200':
+          description: Session cleared; response includes a fresh CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+  /api/users/auth/verify:
+    post:
+      tags:
+      - Users
+      summary: Verify the signed-in session and CSRF token
+      operationId: verifySession
+      responses:
+        '200':
+          description: Authenticated user details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      description: Used by the college service before creating a college.
+  /api/users/users/me:
+    get:
+      tags:
+      - Users
+      summary: Get the signed-in account
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Authenticated user details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - UsersSession: []
+  /api/users/users/me/college:
+    post:
+      tags:
+      - Users
+      summary: Link an administrator to their college
+      operationId: assignCollege
+      responses:
+        '200':
+          description: Updated administrator account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                college_id:
+                  type: string
+                  format: uuid
+              required:
+              - college_id
+      description: Requires college_admin. The college must belong to the signed-in user. Existing membership
+        cannot be replaced with another college.
+  /api/colleges/college:
+    get:
+      tags:
+      - Colleges
+      summary: List active colleges
+      operationId: listColleges
+      responses:
+        '200':
+          description: Active colleges sorted by name. Empty lists are valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeList'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags:
+      - Colleges
+      summary: Register a college
+      operationId: createCollege
+      responses:
+        '201':
+          description: College created and linked to its administrator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollege'
+            examples:
+              college:
+                value:
+                  name: Example College
+                  domain: students.college.ie
+      description: Requires a verified college_admin account. Ownership comes from the session. Each administrator
+        can own one college. Retrying the same name and domain completes interrupted account linking without
+        creating a duplicate. A 503 can occur after the college is saved.
+  /api/colleges/college/{college_id}:
+    get:
+      tags:
+      - Colleges
+      summary: Get an active college
+      operationId: getCollege
+      responses:
+        '200':
+          description: Active college details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: college_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /health:
+    get:
+      tags:
+      - Gateway
+      summary: Check Nginx health
+      operationId: getGatewayHealth
+      responses:
+        '200':
+          description: Gateway is reachable; this does not check upstream services.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'ok
+
+                '
+  /api/lms/college/{college_id}/lms/import:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags: [Colleges]
+      summary: Import users, programmes and modules from a college LMS
+      description: Requires ownership of an active college and the college_admin role. Moodle categories map to programmes and Moodle courses to academic modules by default. API keys are used for this request only. Complete imports atomically replace the previous catalog for this college and source.
+      operationId: importCollegeLms
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_url, api_key]
+              properties:
+                provider:
+                  type: string
+                  enum: [moodle]
+                  default: moodle
+                base_url:
+                  type: string
+                  format: uri
+                  description: Public HTTPS LMS base URL on port 443, including any Moodle subpath. Optional operator allowlist can restrict hosts; nonpublic destinations are always blocked.
+                api_key:
+                  type: string
+                  writeOnly: true
+                  minLength: 1
+                  maxLength: 4096
+                mapping:
+                  type: string
+                  enum: [academic, activities]
+                  default: academic
+      responses:
+        '200':
+          description: Catalog saved; response contains provider, base_url, mapping, imported_at and counts for users, courses and modules.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Administrator role or active college ownership required.
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '502':
+          description: LMS request failed or the returned catalog was invalid or exceeded the size limit. Previous catalog is preserved.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/lms/college/{college_id}/lms/catalog:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags: [Colleges]
+      summary: Read the last successful LMS import for an owned college
+      operationId: getCollegeLmsCatalog
+      description: Requires the users session and CSRF token, including for this read. Contains directory data and must not be cached.
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      parameters:
+      - name: provider
+        in: query
+        schema:
+          type: string
+          enum: [moodle]
+          default: moodle
+      - name: base_url
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uri
+      responses:
+        '200':
+          description: Catalog object with college_id, provider, base_url, mapping, imported_at and users, courses and modules arrays. Records use source_id; module course_id refers to a programme source_id in academic mapping.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Administrator role or active college ownership required.
+        '404':
+          description: No successful import for this college and source.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/lms/college/{college_id}/lms/connection:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags: [Colleges]
+      summary: Read saved LMS connection and synchronization status
+      operationId: getLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      responses:
+        '200':
+          description: Connection or null. Credentials are never returned. Includes enabled, next_sync_at, last_attempt_at, last_success_at, counts, last_error, timezone and sync_hour.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '503':
+          description: LMS dependency unavailable.
+    put:
+      tags: [Colleges]
+      summary: Save an encrypted persistent LMS connection for nightly sync
+      operationId: saveLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_url]
+              properties:
+                provider:
+                  type: string
+                  default: moodle
+                base_url:
+                  type: string
+                  format: uri
+                api_key:
+                  type: string
+                  writeOnly: true
+                  description: Required for a new source. Omit or leave blank to keep its saved credential.
+                mapping:
+                  type: string
+                  enum: [academic]
+                  default: academic
+                enabled:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Connection saved. Enabled connections are queued for an initial sync within the worker polling interval, then nightly.
+        '400':
+          description: Invalid settings or CSRF.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '409':
+          description: Synchronization currently holds the connection lease.
+        '503':
+          description: LMS dependency unavailable.
+  /api/lms/college/{college_id}/lms/sync:
+    parameters:
+    - name: college_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags: [Colleges]
+      summary: Synchronize now using saved LMS credentials
+      operationId: syncLmsConnection
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      responses:
+        '200':
+          description: Catalog updated and next nightly synchronization scheduled. Returns sanitized connection status.
+        '400':
+          description: Invalid settings or CSRF.
+        '401':
+          description: Authentication required.
+        '403':
+          description: College administrator ownership required.
+        '409':
+          description: No enabled connection or synchronization is already running.
+        '502':
+          description: Upstream error. Previous successful catalog is preserved; retry due in 15 minutes.
+        '503':
+          description: LMS dependency unavailable.
+components:
+  securitySchemes:
+    UsersSession:
+      type: apiKey
+      in: cookie
+      name: tutor_session
+      description: Users session cookie. Fetch the users CSRF endpoint before login; protected endpoints
+        require an active, verified account.
+    RegistrationSession:
+      type: apiKey
+      in: cookie
+      name: registration_session
+      description: Anonymous registration session created by the registration CSRF endpoint. This is separate
+        from the signed-in users session.
+    CsrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRFToken
+      description: Token from the service receiving the POST. College creation uses the users token. Keep
+        the matching cookie and use the new token after login or logout.
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+      - error
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+      - message
+    CsrfResponse:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        college_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+          - suspended
+          - marked_for_deletion
+          - pending_verification
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - student
+            - tutor
+            - college_admin
+        email_verified:
+          type: boolean
+      required:
+      - id
+      - username
+      - email
+      - college_id
+      - status
+      - roles
+      - email_verified
+    UserResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - user
+    College:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        domain:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+          - suspended
+          - marked_for_deletion
+        admin_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - id
+      - name
+      - domain
+      - status
+      - admin_id
+    CollegeResponse:
+      type: object
+      properties:
+        college:
+          $ref: '#/components/schemas/College'
+      required:
+      - college
+    CollegeList:
+      type: object
+      properties:
+        colleges:
+          type: array
+          items:
+            $ref: '#/components/schemas/College'
+      required:
+      - colleges
+    SignupFields:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 9
+          maxLength: 128
+          writeOnly: true
+        username:
+          type: string
+          pattern: ^[A-Za-z0-9_]{3,30}$
+          description: Optional; generated when omitted. Stored trimmed and case-folded.
+      required:
+      - email
+      - password
+    StudentSignup:
+      allOf:
+      - $ref: '#/components/schemas/SignupFields'
+      - type: object
+        properties:
+          account_type:
+            type: string
+            enum:
+            - student
+            default: student
+          college_id:
+            type: string
+            format: uuid
+            description: Required active college. The email domain must exactly match its student domain.
+        required:
+        - college_id
+    CollegeAdminSignup:
+      allOf:
+      - $ref: '#/components/schemas/SignupFields'
+      - type: object
+        properties:
+          account_type:
+            type: string
+            enum:
+            - college_admin
+          college_id:
+            type: 'null'
+            description: Omit this field; college registration follows email verification and login.
+        required:
+        - account_type
+    SignupResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        message:
+          type: string
+      required:
+      - user
+      - message
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+          writeOnly: true
+      required:
+      - email
+      - password
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        csrf_token:
+          type: string
+      required:
+      - user
+      - csrf_token
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        csrf_token:
+          type: string
+      required:
+      - message
+      - csrf_token
+    CreateCollege:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        domain:
+          type: string
+          maxLength: 253
+          pattern: ^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$
+          description: Student email domain, without @ or a URL. Input is trimmed and lowercased.
+      required:
+      - name
+      - domain
+  responses:
+    BadRequest:
+      description: Invalid input or missing, invalid or expired CSRF token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, invalid or expired session, invalid credentials, or an unverified/inactive
+        account.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: College administrator access or college ownership required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Duplicate identity, college or conflicting membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: College is missing, inactive or has an invalid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unavailable:
+      description: A required service, database or email delivery is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooLarge:
+      description: Request body exceeds 16 KiB; Flask or Nginx may return HTML.
+      content:
+        text/html:
+          schema:
+            type: string
+    Csrf:
+      description: Session-bound CSRF token. Retain the session cookie.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CsrfResponse'
+      headers:
+        Set-Cookie:
+          description: Creates or refreshes the receiving service session cookie.
+          schema:
+            type: string

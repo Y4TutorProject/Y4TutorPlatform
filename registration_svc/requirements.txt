@@ -1,1 +1,2 @@
 -r ../users_svc/requirements.txt
+itsdangerous>=2.2,<3

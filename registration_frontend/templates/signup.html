@@ -5,16 +5,19 @@
 {% block navigation %}{% endblock %}
 {% block main %}
 <main class="auth-screen" aria-labelledby="form-title">
-  <h1 id="form-title">Sign up</h1>
+  <h1 id="form-title">{{ 'Student sign up' if account_type == 'student' else 'Create administrator account' }}</h1>
   <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
-  <form id="signup-form" method="post" action="/signup">
+  <form id="signup-form" class="{{ 'admin-signup' if account_type == 'college_admin' else '' }}" method="post" action="/signup" data-account-type="{{ account_type }}">
+    {% if account_type == 'student' %}
     <div class="college-picker">
       <label class="form-label" for="college">Select your college</label>
-      <select class="form-select" id="college" name="college_id" aria-describedby="college-help" disabled>
-        <option value="" selected>Select your college</option>
+      <select class="form-select" id="college" name="college_id" aria-describedby="college-help" aria-busy="true" required disabled>
+        <option value="" selected>Loading colleges…</option>
       </select>
-      <p class="form-text mb-0" id="college-help">Not implemented yet. College selection will be available later.</p>
+      <p class="form-text mb-0" id="college-help" role="status" aria-live="polite">Loading available colleges…</p>
+      <button class="btn btn-sm btn-outline-secondary mt-2" id="retry-colleges" type="button" hidden>Retry</button>
     </div>
+    {% endif %}
     <div class="signup-fields">
       <div class="auth-field">
         <label class="form-label" for="email">Email address</label>
@@ -29,9 +32,10 @@
         <input class="form-control" id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="9" maxlength="128" required>
       </div>
     </div>
-    <button class="btn btn-dark auth-submit" type="submit">Sign up</button>
+    <button class="btn btn-dark auth-submit" type="submit" {% if account_type == 'student' %}disabled{% endif %}>Create account</button>
   </form>
   <noscript><p class="alert alert-danger mt-3">Enable JavaScript to sign up.</p></noscript>
   <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+  <p class="auth-switch"><a href="/signup">Change registration type</a> · <a href="/check-email">Resend verification</a></p>
 </main>
 {% endblock %}

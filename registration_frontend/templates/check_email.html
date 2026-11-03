@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Check your email{% endblock %}
+{% block page %}check-email{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main %}
+<main class="auth-screen" aria-labelledby="form-title">
+  <h1 id="form-title">Check your email</h1>
+  <div class="signin-content">
+    <p>Open the verification email and follow its link before signing in. The link expires after one hour.</p>
+    <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+    <form id="resend-form" method="post" action="/check-email">
+      <div class="auth-field">
+        <label class="form-label" for="email">Email address</label>
+        <input class="form-control" id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <button class="btn btn-dark auth-submit" type="submit">Resend verification</button>
+    </form>
+    <p class="auth-switch"><a href="/login">Back to sign in</a></p>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Verify email{% endblock %}
+{% block page %}verify-email{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main %}
+<main class="auth-screen" aria-labelledby="form-title">
+  <h1 id="form-title">Verify your email</h1>
+  <div class="signin-content">
+    <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1">Confirm your email address to activate your account.</p>
+    <button class="btn btn-dark auth-submit" id="verify-email-button" type="button">Verify email</button>
+    <p class="auth-switch"><a href="/login">Sign in</a> · <a href="/check-email">Resend verification</a></p>
+  </div>
+</main>
+{% endblock %}

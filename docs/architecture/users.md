@@ -1,75 +1,81 @@
-# Users
-The registration service owns signup and account validation. The user service owns login, logout, sessions, and user status. Both use the same MongoDB users collection and share the user model, DAO, and credential helpers from `users_svc`. Passwords use Werkzeug scrypt; login uses Flask-Login cookie sessions.
+# Users and registration
 
-## ENV Settings
-Both services need
-SECRET_KEY
-GENERATE -> python3 -c 'import secrets; print(secrets.token_hex(32))'
-SESSION_COOKIE_SECURE
-Use false for HTTP or True with HTTPS
+`registration_svc` handles signup and email verification. `users_svc` handles
+login, logout and sessions. Both use the `users_db.users` MongoDB collection.
 
-## API
-Registration API is available at http://localhost:5050:
+## Setup
 
-- `GET /auth/csrf` returns a registration CSRF token.
-- `POST /auth/signup` creates an account and does not log it in.
+Set these in `.env`, then run `docker compose up -d --build`:
 
-Users API is available at http://localhost:5051:
+- `SECRET_KEY`: at least 32 random characters.
+- `SESSION_COOKIE_SECURE=false` for local HTTP; `true` with HTTPS.
+- `PUBLIC_BASE_URL=http://localhost:8080` for verification links.
 
-- `GET /auth/csrf` returns a users CSRF token.
-- `POST /auth/login` logs in an existing account.
-- `POST /auth/logout` ends the session.
-- `GET /users/me` returns the authenticated user.
+Generate a secret with:
 
-Fetch the CSRF token from the service receiving the POST. The services use separate session cookies (`registration_session` and `tutor_session`).
-
-X-CSRFToken will need to be sent on every POST request. After login or logout use the new token thats returned.
-
-Browsers should use same-origin requests with credentials
-
-The browser UI enters through Nginx at `http://localhost:8080`: `/login` and
-`/account` are served by `users_frontend`, while `/signup` is served by
-`registration_frontend`. Browser API calls use `/api/users/` and
-`/api/registration/`; Nginx strips those prefixes before forwarding to the
-corresponding API. See [frontend architecture](frontends.md).
-
-## JSON Structure
-```json
-{
-  "username": "student_one",
-  "email": "student@example.com",
-  "password": "a long unique password"
-}
+```sh
+python3 -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
-Passwords must be 9-128 characters, usernames are 3-30 letters, numbers, or underscores.
-usernames and emails are trimmed and lowered
+Open the app at http://localhost:8080 and Mailpit at http://localhost:8025.
+Registration sends mail to `mailpit:1025` inside Compose.
 
-Username is optional: when omitted, the registration service generates one.
-The signup screen only asks for email, password, and password confirmation.
-Signup has no account-type selector. New users start as active students; account
-confirmation is TBD. Direct `account_type`, `roles`, and `status` fields from
-clients are ignored.
+## Signup
 
-The college combobox is disabled and marked **Not implemented yet** on the signup screen.
-The college list will come from `college_db` once that service is set up; no
-placeholder college records or memberships are stored during signup.
+At `/signup`, choose student or college administrator:
 
-## Errors
-400 for invalid input
-401 for invalid credentials or missing auth
-409 for duplicate username/email
-503 for a database failure
+- Students must select an active college and use its student email domain.
+- Administrators create an account first, then register their college after
+  verifying their email and signing in.
 
-# Tests
+The API accepts `email`, `password`, `account_type` and an optional `username`.
+`account_type` is `student` or `college_admin`; students also need `college_id`.
+Passwords are 9–128 characters. Usernames are 3–30 letters, numbers or underscores
+and are generated if omitted. Emails and usernames are trimmed and lowercased.
+Client-supplied roles, status and verification flags are ignored.
+
+New accounts cannot sign in until their email is verified. Verification links
+expire after one hour and work once. Resends have a one-minute cooldown.
+Existing accounts keep their previous access.
+
+## API
+
+Use the gateway prefixes below. Direct development ports are 5050 for
+registration and 5051 for users.
+
+Registration (`/api/registration`):
+
+- `GET /auth/csrf`
+- `POST /auth/signup`
+- `POST /auth/verify-email` — body: `{ "token": "..." }`
+- `POST /auth/resend-verification` — body: `{ "email": "..." }`
+
+Users (`/api/users`):
+
+- `GET /auth/csrf`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/verify` — session and CSRF check used by the college service.
+- `GET /users/me`
+- `POST /users/me/college` — links an administrator to their own college.
+
+POSTs need `X-CSRFToken` from the receiving service and its session cookie.
+Use the new token returned after login or logout. Registration and users have
+separate session cookies. Passwords are stored as scrypt hashes.
+
+Errors: 400 invalid input or CSRF, 401 invalid login/session, 403 denied access,
+409 duplicate account or membership conflict, 503 service unavailable.
+
+## Tests
+
 ```sh
 python3.12 -m venv .venv-auth
 .venv-auth/bin/python -m pip install -r users_svc/requirements-dev.txt
-.venv-auth/bin/python -m pytest -q tests/test_auth.py
+.venv-auth/bin/python -m pytest tests/test_auth.py tests/test_college_auth.py -q
 ```
 
-These tests exercise signup through registration and login through users with a shared test database. They use Flask API and mock mongoDB using mongomock with CSRF enabled.
-They do not use the running database.
+Tests use mocked MongoDB and email delivery. The live Mailpit test is in
+`tests/gateway_smoke.py`.
 
-# Production Preperation
-Before exposing the service the login/signup rate will need limits and use HTTPS using WSGI instead of flask dev server.
+Public deployment still needs HTTPS, login/signup rate limits and a production
+WSGI server for the APIs.
