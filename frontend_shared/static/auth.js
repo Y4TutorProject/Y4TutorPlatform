@@ -117,8 +117,9 @@ async function loadAccount() {
     document.getElementById("account-email").textContent = user.email;
     statusElement.hidden = true;
     document.getElementById("account-details").hidden = false;
-    if ((user.roles || []).includes("college_admin") && user.college_id) {
-      setupLMSImport(user.college_id);
+    const settings = document.getElementById("lms-settings");
+    if (settings) {
+      setupLMSImport(settings.dataset.collegeId);
     }
   } catch (error) {
     if (error.status === 401) window.location.replace("/login");
@@ -139,7 +140,6 @@ async function loadAccount() {
 }
 
 async function setupLMSImport(collegeId) {
-  document.getElementById("lms-settings").hidden = false;
   const form = document.getElementById("lms-form");
   const status = document.getElementById("lms-status");
   const saveButton = form.querySelector("button[type=submit]");

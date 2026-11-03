@@ -1,4 +1,5 @@
 import os
+import hmac
 
 from flask import Flask, jsonify, request
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -7,6 +8,8 @@ from .college_dao.MongoCollegeDAO import MongoCollegeDAO
 from .implementations.college_svc import CollegeService
 from .auth import AuthenticationError, UsersAuthClient
 from .Objects.CollegeStatus import CollegeStatus
+from .academic_dao.MongoAcademicDAO import MongoAcademicDAO
+from .implementations.academic_svc import AcademicService
 
 def create_app(config=None, dao=None, auth_client=None):
     """Create the college API with a DAO and users-session verification client.
@@ -34,6 +37,7 @@ def create_app(config=None, dao=None, auth_client=None):
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true",
         MAX_CONTENT_LENGTH=16 * 1024,
+        COLLEGE_SYNC_TOKEN=os.getenv("COLLEGE_SYNC_TOKEN", ""),
         # Verify through the gateway to retain Flask-Login's strong session
         # binding: users_svc sees the same proxy address as it did at login.
         USERS_API_URL=os.getenv("USERS_API_URL", "http://gateway/api/users"),
@@ -50,6 +54,31 @@ def create_app(config=None, dao=None, auth_client=None):
     app.extensions["college_dao"] = dao
     app.extensions["college_service"] = CollegeService(dao)
     app.extensions["users_auth"] = auth_client or UsersAuthClient(app.config["USERS_API_URL"])
+    academic = AcademicService(MongoAcademicDAO(dao.db))
+    app.extensions["academic_service"] = academic
+
+    @app.before_request
+    def academic_request_limit():
+        if request.path.startswith("/internal/college/"):
+            request.max_content_length = 8 * 1024 * 1024
+
+    @app.route("/internal/college/<college_id>/catalogs", methods=["POST"])
+    @app.route("/internal/college/<college_id>/catalogs/<catalog_id>", methods=["GET"])
+    def academic_catalog(college_id, catalog_id=None):
+        token = app.config["COLLEGE_SYNC_TOKEN"]
+        supplied = request.headers.get("X-College-Sync-Token", "")
+        if not token or not hmac.compare_digest(token.encode(), supplied.encode()):
+            return jsonify(error="Service authentication required."), 401
+        college = app.extensions["college_service"].get_college_by_id(college_id)
+        if college is None or college.status != CollegeStatus.ACTIVE:
+            return jsonify(error="College not found."), 404
+        try:
+            if request.method == "POST":
+                return jsonify(catalog=academic.import_catalog(college_id, request.get_json(silent=True)))
+            catalog = academic.get_catalog(college_id, catalog_id)
+            return (jsonify(catalog=catalog), 200) if catalog else (jsonify(error="Catalogue not found."), 404)
+        except ValueError:
+            return jsonify(error="Invalid academic catalogue."), 400
 
     @app.get("/college")
     def list_colleges():

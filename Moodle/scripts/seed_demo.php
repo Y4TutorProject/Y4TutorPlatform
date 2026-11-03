@@ -64,7 +64,7 @@ foreach ($curriculum as $offset => $department) {
                 'auth' => 'manual', 'confirmed' => 1, 'mnethostid' => $CFG->mnet_localhost_id,
                 'username' => $username, 'password' => $password, 'idnumber' => 'tutor-demo-' . $username,
                 'firstname' => 'Student', 'lastname' => sprintf('%03d', $index),
-                'email' => $username . '@testcollege.example', 'emailstop' => 1,
+                'email' => $username . '@student.testcollege.ie', 'emailstop' => 1,
                 'department' => $department['name'], 'institution' => 'Test College',
                 'country' => 'IE', 'timezone' => 'Europe/Dublin',
             ]);

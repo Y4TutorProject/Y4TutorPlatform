@@ -65,6 +65,27 @@ def validate_catalog(catalog):
                 chain.add(current)
                 current = courses[current].get("parent_id")
             done.update(chain)
+        available = catalog.get("enrolments_available", False)
+        if not isinstance(available, bool):
+            raise ValueError()
+        enrolments = catalog.get("enrolments", [])
+        if not isinstance(enrolments, list) or len(enrolments) > 500000:
+            raise ValueError()
+        users = {u["source_id"]: u for u in normalized["users"]}
+        # Moodle courses map to academic modules, or to courses in activity mode.
+        targets = {m["source_id"] for m in normalized["modules"]} if catalog.get("mapping", "academic") == "academic" else set(courses)
+        normalized["enrolments"] = []
+        seen = set()
+        for record in enrolments:
+            user_id = identifier(record["user_source_id"])
+            course_id = identifier(record["course_source_id"])
+            if user_id not in users or users[user_id]["suspended"] or course_id not in targets or (user_id, course_id) in seen:
+                raise ValueError()
+            seen.add((user_id, course_id))
+            normalized["enrolments"].append({"user_source_id": user_id, "course_source_id": course_id})
+        if enrolments and not available:
+            raise ValueError()
+        normalized["enrolments_available"] = available
         return normalized
     except (ValueError, KeyError, TypeError):
         raise LMSImportError("LMS returned invalid records or relationships; the previous catalog is unchanged.") from None

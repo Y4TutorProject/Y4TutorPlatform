@@ -75,6 +75,23 @@ class UsersAuthClient:
         except (URLError, OSError, ValueError):
             raise AuthenticationError("Authentication service temporarily unavailable.", 503) from None
 
+    def authenticate(self, session_cookie, user_agent):
+        """Authenticate a read-only request against the current users session."""
+        if not session_cookie:
+            raise AuthenticationError("Authentication required.", 401)
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = session_cookie
+        headers = {"Cookie": cookie.output(header="").strip(), "User-Agent": user_agent}
+        status, data = self._request("GET", "/users/me", headers)
+        if status == 401:
+            raise AuthenticationError("Authentication required.", 401)
+        if status != 200:
+            raise AuthenticationError("Authentication service temporarily unavailable.", 503)
+        user = data.get("user")
+        if not isinstance(user, dict) or not user.get("email_verified"):
+            raise AuthenticationError("Authentication required.", 401)
+        return user
+
     def verify(self, session_cookie, user_agent, csrf_token):
         """Verify the users session and its CSRF token before a college write.
 

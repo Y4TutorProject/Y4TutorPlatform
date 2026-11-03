@@ -32,5 +32,5 @@ class LMSImportService:
         if self.providers[provider] is MoodleProvider and (self.private_hosts or self.ca_file):
             options["opener"] = PublicHTTPSOpener(self.private_hosts, self.ca_file)
         catalog = self.providers[provider](url, key.strip(), mapping=mapping, **options).fetch_catalog()
-        catalog = validate_catalog(catalog)
+        catalog = validate_catalog({**catalog, "mapping": mapping})
         return self.store.save(college_id, provider, url, {**catalog, "mapping": mapping})
