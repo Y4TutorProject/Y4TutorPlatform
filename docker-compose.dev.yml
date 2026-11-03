@@ -1,0 +1,24 @@
+# Local Moodle networking and certificate trust. URL exceptions still require
+# DEV_MODE=true in .env. Never disable TLS verification for development.
+services:
+  lms_svc:
+    environment:
+      LMS_CA_FILE: /etc/lms/moodle-root.crt
+    volumes:
+      - ./Moodle/caddy/root.crt:/etc/lms/moodle-root.crt:ro
+    networks:
+      - default
+      - testcollege
+  lms_worker:
+    environment:
+      LMS_CA_FILE: /etc/lms/moodle-root.crt
+    volumes:
+      - ./Moodle/caddy/root.crt:/etc/lms/moodle-root.crt:ro
+    networks:
+      - default
+      - testcollege
+
+networks:
+  testcollege:
+    external: true
+    name: testcollege

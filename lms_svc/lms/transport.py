@@ -21,7 +21,7 @@ def public_address(address):
                           or ip in ipaddress.ip_network("64:ff9b:1::/48"))))
 
 
-def validate_url(url, allowed_hosts=()):
+def validate_url(url, allowed_hosts=(), private_hosts=()):
     if not isinstance(url, str) or not url or len(url) > 2048 or any(ord(c) <= 32 or ord(c) == 127 for c in url) or "\\" in url:
         raise ValueError("Enter a public HTTPS LMS base URL.")
     try:
@@ -37,7 +37,7 @@ def validate_url(url, allowed_hosts=()):
         try:
             ipaddress.ip_address(host)
         except ValueError:
-            if ("." not in host or host.endswith((".", ".localhost", ".local", ".internal"))
+            if ("." not in host or (host.endswith(".") or (host.endswith((".localhost", ".local", ".internal")) and host not in private_hosts))
                     or len(host) > 253 or not all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in host.split("."))):
                 raise ValueError()
         else:
@@ -51,18 +51,25 @@ def validate_url(url, allowed_hosts=()):
     return parsed._replace(netloc=netloc).geturl().rstrip("/")
 
 
-def resolve_public(host, port):
+def resolve_public(host, port, private_hosts=()):
     results = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    if not results or any(not public_address(row[4][0]) for row in results):
+    def permitted(address):
+        ip = ipaddress.ip_address(address)
+        return public_address(address) or (host in private_hosts and ip.is_private
+            and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified
+                     or ip.is_multicast or ip.is_reserved or getattr(ip, "ipv4_mapped", None)))
+    if not results or any(not permitted(row[4][0]) for row in results):
         raise LMSImportError("LMS hostname must resolve only to public internet addresses.")
     return results
 
 
 class PublicHTTPSConnection(http.client.HTTPSConnection):
+    private_hosts = ()
+
     def connect(self):
         # Validate all answers, then use the numeric sockaddr directly: no second
         # DNS lookup between validation and connection. SNI/verification use host.
-        addresses = resolve_public(self.host, self.port)
+        addresses = resolve_public(self.host, self.port, self.private_hosts)
         for family, kind, protocol, _, address in addresses:
             sock = socket.socket(family, kind, protocol)
             try:
@@ -76,11 +83,18 @@ class PublicHTTPSConnection(http.client.HTTPSConnection):
 
 
 class PublicHTTPSOpener:
+    def __init__(self, private_hosts=(), ca_file=None):
+        self.private_hosts = frozenset(private_hosts)
+        self.ca_file = ca_file
+
     @contextmanager
     def open(self, request, timeout):
-        url = validate_url(request.full_url)
+        url = validate_url(request.full_url, private_hosts=self.private_hosts)
         parsed = urlsplit(url)
         connection = PublicHTTPSConnection(parsed.hostname, 443, timeout=timeout)
+        connection.private_hosts = self.private_hosts
+        if self.ca_file:
+            connection._context.load_verify_locations(cafile=self.ca_file)
         try:
             connection.request(request.get_method(), parsed.path or "/", body=request.data, headers=dict(request.header_items()))
             response = connection.getresponse()

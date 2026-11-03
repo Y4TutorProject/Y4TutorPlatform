@@ -105,6 +105,9 @@ services:
       MONGO_URI: mongodb://admin:${LMS_DB_PASSWORD:-password}@lms_db:27017/?authSource=admin
       MONGO_DB_NAME: lms_db
       LMS_ENCRYPTION_KEY: ${LMS_ENCRYPTION_KEY:-}
+      DEV_MODE: ${DEV_MODE:-false}
+      LMS_PRIVATE_HOSTS: ${LMS_PRIVATE_HOSTS:-moodle.tutor.localhost}
+      LMS_CA_FILE: ${LMS_CA_FILE:-}
       LMS_ALLOWED_HOSTS: ${LMS_ALLOWED_HOSTS:-}
       LMS_SYNC_TIMEZONE: ${LMS_SYNC_TIMEZONE:-Europe/Dublin}
       LMS_SYNC_HOUR: ${LMS_SYNC_HOUR:-2}

@@ -149,6 +149,7 @@ async function setupLMSImport(collegeId) {
   const base = `/api/lms/college/${encodeURIComponent(collegeId)}/lms`;
   let saved = false;
   let enabled = false;
+  let sessionExpired = false;
   function selectProvider() {
     const provider = form.elements.provider.value;
     moodleSettings.hidden = provider !== "moodle";
@@ -162,11 +163,22 @@ async function setupLMSImport(collegeId) {
   form.elements.provider.addEventListener("change", selectProvider);
   selectProvider();
   async function call(path, method = "GET", data) {
-    const { csrf_token } = await requestJSON("/api/users/auth/csrf");
-    return requestJSON(base + path, {
-      method, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf_token },
-      ...(data === undefined ? {} : { body: JSON.stringify(data) }),
-    });
+    try {
+      const { csrf_token } = await requestJSON("/api/users/auth/csrf");
+      return await requestJSON(base + path, {
+        method, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf_token },
+        ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+      });
+    } catch (error) {
+      if (error.status === 401) {
+        sessionExpired = true;
+        saveButton.disabled = syncButton.disabled = true;
+        form.elements.api_key.value = "";
+        error.message = "Your session has expired. Sign in again to manage your Moodle connection.";
+        window.location.replace("/login");
+      }
+      throw error;
+    }
   }
   function display(connection) {
     saved = Boolean(connection);
@@ -208,11 +220,12 @@ async function setupLMSImport(collegeId) {
     } catch (error) {
       status.textContent = errorMessage(error);
     } finally {
-      saveButton.disabled = false;
-      syncButton.disabled = !saved || !enabled;
+      saveButton.disabled = sessionExpired;
+      syncButton.disabled = sessionExpired || !saved || !enabled;
     }
   });
   syncButton.addEventListener("click", async () => {
+    if (syncButton.disabled) return;
     saveButton.disabled = syncButton.disabled = true;
     status.textContent = "Synchronizing college data…";
     try {
@@ -220,8 +233,8 @@ async function setupLMSImport(collegeId) {
     } catch (error) {
       status.textContent = errorMessage(error);
     } finally {
-      saveButton.disabled = false;
-      syncButton.disabled = !saved || !enabled;
+      saveButton.disabled = sessionExpired;
+      syncButton.disabled = sessionExpired || !saved || !enabled;
     }
   });
 }

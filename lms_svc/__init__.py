@@ -22,6 +22,9 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         MONGO_URI=os.getenv("MONGO_URI", "mongodb://lms_db:27017/"),
         MONGO_DB_NAME=os.getenv("MONGO_DB_NAME", "lms_db"),
         LMS_ENCRYPTION_KEY=os.getenv("LMS_ENCRYPTION_KEY"),
+        DEV_MODE=os.getenv("DEV_MODE", "false").lower() == "true",
+        LMS_PRIVATE_HOSTS=os.getenv("LMS_PRIVATE_HOSTS", ""),
+        LMS_CA_FILE=os.getenv("LMS_CA_FILE") or None,
         LMS_ALLOWED_HOSTS=os.getenv("LMS_ALLOWED_HOSTS", ""),
         LMS_SYNC_TIMEZONE=os.getenv("LMS_SYNC_TIMEZONE", "Europe/Dublin"),
         LMS_SYNC_HOUR=os.getenv("LMS_SYNC_HOUR", "2"),
@@ -36,7 +39,9 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         database = client[app.config["MONGO_DB_NAME"]]
     auth = auth_client or UsersAuthClient(app.config["USERS_API_URL"])
     colleges = college_client or CollegeClient(app.config["COLLEGE_API_URL"])
-    importer = LMSImportService(MongoLMSImportStore(database), app.config["LMS_ALLOWED_HOSTS"].split(","))
+    importer = LMSImportService(MongoLMSImportStore(database), app.config["LMS_ALLOWED_HOSTS"].split(","),
+                                private_hosts=app.config["LMS_PRIVATE_HOSTS"].split(",") if app.config["DEV_MODE"] else (),
+                                ca_file=app.config["LMS_CA_FILE"] if app.config["DEV_MODE"] else None)
     sync = LMSSyncService(importer, MongoConnectionStore(database), app.config["LMS_ENCRYPTION_KEY"], colleges,
                           app.config["LMS_SYNC_TIMEZONE"], app.config["LMS_SYNC_HOUR"])
     app.extensions.update(lms_service=importer, lms_sync=sync, lms_database=database)

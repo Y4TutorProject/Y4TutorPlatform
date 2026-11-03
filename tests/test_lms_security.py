@@ -30,10 +30,56 @@ def test_private_and_ambiguous_urls_rejected(url):
         validate_url(url)
 
 
+def test_local_url_exception_is_limited_to_the_configured_hostname():
+    hosts = {"moodle.tutor.localhost"}
+    assert validate_url("https://moodle.tutor.localhost", private_hosts=hosts) == "https://moodle.tutor.localhost"
+    for url in ["https://other.localhost", "http://moodle.tutor.localhost",
+                "https://moodle.tutor.localhost:8443", "https://127.0.0.1",
+                "https://moodle.tutor.localhost.evil.localhost"]:
+        with pytest.raises(ValueError):
+            validate_url(url, private_hosts=hosts)
+
+
 def dns_row(address):
     family = socket.AF_INET6 if ipaddress.ip_address(address).version == 6 else socket.AF_INET
     sockaddr = (address, 443, 0, 0) if family == socket.AF_INET6 else (address, 443)
     return family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", sockaddr
+
+
+def test_local_dns_exception_applies_only_to_the_test_host(monkeypatch):
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **kw: [dns_row("172.23.0.5")])
+    hosts = {"moodle.tutor.localhost"}
+    assert resolve_public("moodle.tutor.localhost", 443, hosts)
+    with pytest.raises(LMSImportError):
+        resolve_public("another.edu", 443, hosts)
+
+
+@pytest.mark.parametrize("address", ["127.0.0.1", "169.254.169.254", "0.0.0.0", "::1", "168.63.129.16"])
+def test_local_exception_still_blocks_loopback_and_metadata(monkeypatch, address):
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **kw: [dns_row(address)])
+    with pytest.raises(LMSImportError):
+        resolve_public("moodle.tutor.localhost", 443, {"moodle.tutor.localhost"})
+
+
+@pytest.mark.parametrize("dev_mode", [False, True])
+def test_private_host_configuration_requires_dev_mode(dev_mode):
+    import mongomock
+    from cryptography.fernet import Fernet
+    from lms_svc import create_app
+
+    app = create_app({"TESTING": True, "LMS_ENCRYPTION_KEY": Fernet.generate_key(),
+                      "DEV_MODE": dev_mode, "LMS_PRIVATE_HOSTS": "moodle.tutor.localhost",
+                      "LMS_CA_FILE": "/test/local-ca.crt"},
+                     database=mongomock.MongoClient().lms_db)
+    importer = app.extensions["lms_service"]
+    source = {"base_url": "https://moodle.tutor.localhost"}
+    if dev_mode:
+        assert importer.validate_source(source) == ("moodle", source["base_url"])
+        assert importer.ca_file == "/test/local-ca.crt"
+    else:
+        with pytest.raises(ValueError):
+            importer.validate_source(source)
+        assert importer.ca_file is None
 
 
 @pytest.mark.parametrize("addresses", [["10.0.0.2"], ["169.254.169.254"], ["1.1.1.1", "127.0.0.1"], ["2606:4700:4700::1111", "fd00::1"]])

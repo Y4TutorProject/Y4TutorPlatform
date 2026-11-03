@@ -78,6 +78,23 @@ def test_failed_fetch_preserves_previous_import(integration, monkeypatch):
     assert client.application.extensions["lms_database"].lms_imports.find_one() == previous
 
 
+def test_builtin_guest_is_excluded_without_relaxing_real_user_validation(integration):
+    _, client, _, _, payload, path, headers, responses = integration
+    responses["core_user_get_users"]["users"].append({
+        "id": 1, "username": "guest", "email": "root@localhost",
+        "firstname": "Guest user", "lastname": " ",
+    })
+    response = client.post(path + "/import", json=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.json["counts"]["users"] == 1
+    collection = client.application.extensions["lms_database"].lms_imports
+    previous = collection.find_one()
+    assert all(user["source_id"] != "1" for user in previous["users"])
+    responses["core_user_get_users"]["users"][0]["email"] = "root@localhost"
+    assert client.post(path + "/import", json=payload, headers=headers).status_code == 502
+    assert collection.find_one() == previous
+
+
 def test_missing_programme_does_not_publish_detached_modules(integration):
     _, client, dao, _, payload, path, headers, responses = integration
     responses["core_course_get_categories"] = []

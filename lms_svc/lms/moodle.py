@@ -77,7 +77,9 @@ class MoodleProvider(LMSProvider):
             users = [{"source_id": source_id(u), "username": u.get("username", ""),
                       "email": u.get("email"), "first_name": u.get("firstname", ""),
                       "last_name": u.get("lastname", ""), "suspended": suspended(u)}
-                     for u in records(result["users"])]
+                     # Moodle's built-in guest is not a person and uses the
+                     # placeholder address root@localhost.
+                     for u in records(result["users"]) if u.get("username") != "guest"]
             moodle_courses = [c for c in records(self._call("core_course_get_courses")) if source_id(c) != "1"]
             if self.mapping == "academic":
                 # Many colleges represent programmes with categories and subjects
