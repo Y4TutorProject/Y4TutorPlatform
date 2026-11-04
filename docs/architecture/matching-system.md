@@ -11,7 +11,7 @@ similar to a student's preference vector.
 4. Results are converted to percentage-style scores, sorted from highest to
    lowest, and returned to the caller.
 
-The preference values currently use a scale from 1 to 5. The higher the score, the higher the prefrence. 
+The preference values currently use a scale from 1 to 10. The higher the score, the higher the prefrence. 
 Cosine similarity compares the direction of two vectors rather than their
 absolute size. This makes it suitable for comparing preference patterns.
 
@@ -37,9 +37,8 @@ Request body:
 }
 ```
 
-The `student_vector` must be a list. The `tutors` value must be an object
-mapping tutor IDs to lists. Every tutor vector must have the same length as
-the student vector.
+The `student_vector` must be a list. The `tutors` value must be an object(dict)
+mapping tutor IDs to lists. Every tutor vector must have the same length as the student vector they are getting compares with.
 
 Example response:
 
@@ -56,8 +55,7 @@ Example response:
 ]
 ```
 
-The service returns all tutors, sorted by similarity, because the endpoint
-currently sets `top_k` to the number of supplied tutors.
+The service returns all tutors, sorted by similarity from highest similarity to lowest. This can be changed by setting `top_k` to the number of tutors to be returned.
 
 ### Health checks
 
@@ -100,7 +98,7 @@ Unexpected errors return status `500` with an error message.
 Student preferences
         |
         v
-Dashboard or calling service
+Dashboard service
         |
         v
 Matching service
@@ -111,7 +109,3 @@ Cosine similarity ranking
         v
 Tutor IDs and similarity scores
 ```
-
-The matching service does not currently retrieve tutor data from MongoDB or
-the user service. The caller supplies the student vector and tutor vectors in
-the request.
