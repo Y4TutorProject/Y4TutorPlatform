@@ -278,3 +278,13 @@ services:
       - "127.0.0.1:8025:8025"
     expose:
       - "1025"
+
+  mkdocs:
+    image: python:3.11-slim
+    working_dir: /docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/docs
+    command: >
+      sh -c "pip install mkdocs && mkdocs serve --dev-addr=0.0.0.0:8000"
