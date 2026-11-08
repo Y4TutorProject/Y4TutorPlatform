@@ -1,0 +1,62 @@
+{% extends "base.html" %} {% block title %}Student Dashboard{% endblock %} {%
+block body_class %}bg-gray-50 text-gray-900{% endblock %} {% block page
+%}student-dashboard{% endblock %} {% block head %}
+<script
+  src="{{ url_for('static', filename='js/dashboard.js') }}"
+  defer
+></script>
+{% endblock %} {% block main %}
+<div class="flex min-h-screen">
+  <!-- <aside
+    class="w-64 shrink-0 bg-white border-r border-gray-200 p-4 flex flex-col"
+  >
+    <h2 class="text-lg font-semibold mb-4">Navigation</h2>
+
+    <p class="text-sm font-medium text-gray-500 mb-2">Moodle modules</p>
+    <ul class="space-y-1 list-none">
+      {% if not moodle.modules %}
+      <li class="text-sm text-gray-500">No modules found</li>
+      {% endif %} {% for module in moodle.modules %}
+      <li>
+        <button
+          type="button"
+          data-module="module-{{ module.id }}"
+          class="module-btn w-full text-left px-3 py-2 rounded hover:bg-gray-100"
+        >
+          {{ module.name }}
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside> -->
+  <!-- Main content -->
+  <main class="flex-1 p-6">
+    <div class="w-50 mx-auto">
+      {% for tutor in moodle.tutors %}
+      <div class="card shadow rounded border-0 mb-4 tutor-card" id="{{ tutor.id }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <p>{{ tutor.first_name }} {{ tutor.last_name }}</p>
+              <p class="card-title mb-1">{{ tutor.username }}</p>
+              <span class="badge bg-success-subtle text-success border">
+                98% Match
+              </span>
+            </div>
+            <div class="text-warning">★★★★★</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary">
+              <i class="bi bi-chat-dots me-1"></i>
+              Message
+            </button>
+            <button class="btn btn-outline-secondary">View Profile</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+</div>
+
+{% endblock %}

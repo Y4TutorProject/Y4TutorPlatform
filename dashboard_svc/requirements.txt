@@ -1,0 +1,5 @@
+flask
+flask-socketio
+pymongo>=4.10,<5
+requests>=2.32,<3
+gunicorn>=23,<24
