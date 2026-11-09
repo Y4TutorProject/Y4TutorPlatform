@@ -49,10 +49,17 @@ document.addEventListener("DOMContentLoaded", function () {
             preferences.append(element("p", "preferences-empty", "No preferences available."));
         }
 
+        
+        // trigger messaging (ppasses the userid and username)
         const message = element("button", "message-link", "Message tutor");
         message.type = "button";
         message.disabled = true;
         message.title = "Messaging is not available here yet";
+        message.addEventListener("click", () => {
+            window.location.href = `/api/dashboard/getmessages?user_id=${encodeURIComponent(tutor.id)}&username=${encodeURIComponent(tutor.username)}`;
+        });
+        message.disabled = false;
+        message.title = "";
         card.append(header, preferences, message);
         return card;
     }
@@ -90,3 +97,11 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+
+
+const logoutButton = document.getElementById("logout-button");
+if (logoutButton) {
+    logoutButton.addEventListener("click", () => {
+        window.location.href = "/logout";
+    });
+}

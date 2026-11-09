@@ -61,6 +61,12 @@ def create_app(config=None):
             return redirect("/dashboard")
         return render_template("login.html")
 
+    @app.get("/logout")
+    def logout():
+        response = redirect("/login")
+        response.delete_cookie("tutor_session", path="/", secure=True, httponly=True, samesite="Lax")
+        return response
+
     @app.after_request
     def no_cache(response):
         response.headers["Cache-Control"] = "no-store"

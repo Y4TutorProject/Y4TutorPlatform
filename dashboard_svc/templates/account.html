@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "dashboard_base.html" %}
 {% block title %}Your account{% endblock %}
 {% block page %}account{% endblock %}
 {% block content %}
@@ -16,9 +16,6 @@
       <p>Rate how much you prefer each approach to learning, from 0 to 10.</p>
       <a href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
     </section>
-  </div>
-  <div>
-    {% include "choose_username.html" %}
   </div>
   <noscript><p class="alert alert-info mt-3">Enable JavaScript to sign out or manage your settings.</p></noscript>
   <p class="mt-3 mb-0"><a href="/dashboard">Back to dashboard</a></p>

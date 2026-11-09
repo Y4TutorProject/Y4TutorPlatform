@@ -11,6 +11,14 @@ tags:
 - name: Registration
 - name: Users
 - name: Colleges
+- name: Dashboard
+  description: Server-rendered dashboard pages and helper routes served by dashboard_svc. Nginx exposes
+    the pages at the root paths shown below, and every dashboard route is also reachable under the
+    /api/dashboard/ prefix (for example /api/dashboard/messages). Signed-out visitors are redirected
+    to /login.
+- name: Messaging
+  description: Chat history and read state served by messaging_svc under /api/messaging/. Live messages
+    use Socket.IO at /socket.io/ (WebSocket upgrade through Nginx), which OpenAPI cannot describe.
 - name: Gateway
 security: []
 paths:
@@ -250,6 +258,39 @@ paths:
           $ref: '#/components/responses/Unavailable'
       security:
       - UsersSession: []
+  /api/users/users/{user_id}:
+    parameters:
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags: [Users]
+      summary: Get another user's general profile
+      operationId: getUserProfile
+      description: Returns a limited profile (no email or status) for an active, verified user in the
+        caller's own college. Unknown IDs, inactive users and users in other colleges all return 404.
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          description: General profile of the requested user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/lms/providers:
     get:
       tags: [LMS]
@@ -436,6 +477,322 @@ paths:
         schema:
           type: string
           format: uuid
+  /:
+    get:
+      tags:
+      - Gateway
+      summary: Redirect to the sign-in page
+      operationId: getRoot
+      responses:
+        '302':
+          description: Redirects to /login.
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /login
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Role-based dashboard page
+      operationId: getDashboardPage
+      description: Renders the tutor dashboard for tutors, the module and tutor finder for students, and
+        the admin dashboard for college administrators who have a college. Redirects to
+        /choose-username when the username is not chosen yet, and to /account for other users.
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /choose-username:
+    get:
+      tags: [Dashboard]
+      summary: Initial username selection page
+      operationId: getChooseUsernamePage
+      description: Renders the form while the username is not chosen. Otherwise redirects to /preferences,
+        /register-college or /dashboard depending on onboarding progress.
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account:
+    get:
+      tags: [Dashboard]
+      summary: Account settings page
+      operationId: getAccountPage
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /preferences:
+    get:
+      tags: [Dashboard]
+      summary: Learning preferences page
+      operationId: getPreferencesPage
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /messages:
+    get:
+      tags: [Dashboard]
+      summary: Messaging page listing the signed-in user's chats
+      operationId: getMessagesPage
+      description: Loads the user's chats from the messaging service and sets the messaging_session
+        cookie. Also available as /api/dashboard/messages.
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/MessagingPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '502':
+          description: The messaging service could not load chats.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/dashboard/messages:
+    get:
+      tags: [Dashboard]
+      summary: Messaging page (API-prefixed alias of /messages)
+      operationId: getMessagesPageViaApi
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          $ref: '#/components/responses/MessagingPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '502':
+          description: The messaging service could not load chats.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/dashboard/getmessages:
+    get:
+      tags: [Dashboard]
+      summary: Open a chat with another user
+      operationId: openChat
+      description: Creates the chat with the other user if it does not exist and renders the messaging
+        page with that chat open. Sets the messaging_session cookie.
+      security:
+      - UsersSession: []
+      parameters:
+      - name: user_id
+        in: query
+        required: true
+        description: ID of the user to message.
+        schema:
+          type: string
+      - name: username
+        in: query
+        required: true
+        description: Username of the user to message.
+        schema:
+          type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/MessagingPage'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '500':
+          description: The messaging service did not return a chat ID.
+        '502':
+          description: The messaging service could not create the chat or load chats.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/dashboard/get_tutors:
+    get:
+      tags: [Dashboard]
+      summary: List tutor profiles for one of the student's modules
+      operationId: getModuleTutors
+      description: Student-only data. Looks up tutor IDs for the module through the LMS service, then
+        fetches each tutor's general profile from the users service.
+      security:
+      - UsersSession: []
+      parameters:
+      - name: module_id
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Tutor profiles; empty when the module has no tutors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorList'
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '400':
+          description: Missing module_id.
+        '502':
+          description: The LMS or users service returned an error or malformed data.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/dashboard/logout:
+    get:
+      tags: [Dashboard]
+      summary: Sign out through the dashboard
+      operationId: dashboardLogout
+      description: Calls the users logout endpoint and redirects to /login. Browser sign-out buttons
+        use POST /api/users/auth/logout instead.
+      responses:
+        '302':
+          $ref: '#/components/responses/PageRedirect'
+        '502':
+          description: The users service could not sign the user out.
+  /api/messaging/mychats/me:
+    post:
+      tags: [Messaging]
+      summary: List a user's chats
+      operationId: listChats
+      description: Called by dashboard_svc, not by browsers. The body must be signed with the shared
+        dashboard secret. Stores the user and username map in the messaging_session cookie.
+      security:
+      - DashboardSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessagingUserContext'
+      responses:
+        '200':
+          description: Chats the user belongs to.
+          headers:
+            Set-Cookie:
+              description: Sets the messaging_session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatList'
+        '400':
+          description: user.id, user.username or an active user.status is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/messaging/mychats/new:
+    post:
+      tags: [Messaging]
+      summary: Create or reuse a one-to-one chat
+      operationId: createChat
+      description: Called by dashboard_svc and signed with the shared dashboard secret. Returns the existing
+        chat when the two users already have one.
+      security:
+      - DashboardSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/MessagingUserContext'
+              - type: object
+                properties:
+                  otherUserId:
+                    type: string
+                    description: Must differ from user.id and appear in the users map.
+                required: [otherUserId]
+      responses:
+        '200':
+          description: Existing chat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatId'
+        '201':
+          description: Chat created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatId'
+        '400':
+          description: Invalid user context or other user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/messaging/mychats/chat/{chat_id}:
+    parameters:
+    - $ref: '#/components/parameters/ChatId'
+    get:
+      tags: [Messaging]
+      summary: Get a chat's messages
+      operationId: getChatMessages
+      security:
+      - MessagingSession: []
+      responses:
+        '200':
+          description: Messages in chronological order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+        '404':
+          description: Chat not found, or the session user is not a member.
+  /api/messaging/mychats/chat/{chat_id}/read:
+    parameters:
+    - $ref: '#/components/parameters/ChatId'
+    post:
+      tags: [Messaging]
+      summary: Mark a chat as read up to its latest message
+      operationId: markChatRead
+      security:
+      - MessagingSession: []
+      responses:
+        '200':
+          description: Read marker updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        '404':
+          description: Chat not found, or the session user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /health:
     get:
       tags:
@@ -669,7 +1026,135 @@ components:
       name: X-CSRFToken
       description: Token from the service receiving the POST. College creation uses the users token. Keep
         the matching cookie and use the new token after login or logout.
+    MessagingSession:
+      type: apiKey
+      in: cookie
+      name: messaging_session
+      description: Messaging session cookie set by POST /api/messaging/mychats/me. It is separate from
+        the users session.
+    DashboardSignature:
+      type: apiKey
+      in: header
+      name: X-Dashboard-Signature
+      description: Hex HMAC-SHA256 of the exact request body using DASHBOARD_SHARED_SECRET. Only
+        dashboard_svc can produce it.
+  parameters:
+    ChatId:
+      name: chat_id
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
+    UserProfile:
+      type: object
+      description: General details safe to show to other users in the same college.
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        college_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [student, tutor, college_admin]
+        preferences:
+          type: object
+          description: Learning preference scores from 0 to 10.
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 10
+      required: [id, username, college_id, roles, preferences]
+    UserProfileResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required: [user]
+    TutorList:
+      type: object
+      properties:
+        tutors:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+      required: [tutors]
+    MessagingUserContext:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+            status:
+              type: string
+              enum: [active]
+          required: [id, username, status]
+        users:
+          type: object
+          description: Map of other participant IDs to usernames.
+          additionalProperties:
+            type: string
+      required: [user]
+    ChatId:
+      type: object
+      properties:
+        chatId:
+          type: string
+      required: [chatId]
+    Chat:
+      type: object
+      properties:
+        chatId:
+          type: string
+        otherUserId:
+          type: string
+        displayName:
+          type: string
+        lastMessage:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        unread:
+          type: boolean
+      required: [chatId, otherUserId, displayName, lastMessage, timestamp, unread]
+    ChatList:
+      type: object
+      properties:
+        chats:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat'
+      required: [chats]
+    ChatMessage:
+      type: object
+      properties:
+        messageId:
+          type: string
+        chatId:
+          type: string
+        senderId:
+          type: string
+        senderUsername:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required: [messageId, chatId, senderId, senderUsername, message, timestamp]
     Error:
       type: object
       properties:
@@ -900,6 +1385,29 @@ components:
       - name
       - domain
   responses:
+    HtmlPage:
+      description: Rendered HTML page.
+      content:
+        text/html:
+          schema:
+            type: string
+    MessagingPage:
+      description: Rendered messaging page.
+      headers:
+        Set-Cookie:
+          description: Sets the messaging_session cookie when the messaging service issued one.
+          schema:
+            type: string
+      content:
+        text/html:
+          schema:
+            type: string
+    PageRedirect:
+      description: Redirect to the sign-in page when signed out, or to the next onboarding step.
+      headers:
+        Location:
+          schema:
+            type: string
     BadRequest:
       description: Invalid input or missing, invalid or expired CSRF token.
       content:
