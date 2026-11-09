@@ -145,8 +145,8 @@ def test_student_moodle_information_is_rendered_and_escaped(frontend, monkeypatc
             data = {'student': {'first_name': '<script>alert(1)</script>', 'last_name': 'Example',
                                 'username': 'moodle-student', 'email': 'student@example.test'},
                     'college': {'name': 'Example College'}, 'imported_at': '2026-11-03T12:00:00Z',
-                    'mapping': 'academic', 'enrolments_available': True, 'courses': [{'id': '1', 'source_id': '1', 'name': 'Computing'}],
-                    'modules': [{'course_id': '1', 'name': 'Databases', 'code': 'DB4'}]}
+                    'mapping': 'academic', 'enrolments_available': True, 'courses': [{'id': '1', 'source_id': '1', 'name': 'Computing &amp; Informatics'}],
+                    'modules': [{'course_id': '1', 'name': 'Databases &amp; SQL &lt;script&gt;alert(1)&lt;/script&gt;', 'code': 'DB4'}]}
         return BytesIO(json.dumps(data).encode())
     monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)
     response = client.get('/dashboard')
@@ -154,6 +154,9 @@ def test_student_moodle_information_is_rendered_and_escaped(frontend, monkeypatc
     assert response.status_code == 200
     assert 'moodle-student' in html and 'Databases' in html and 'Computing' in html
     assert '&lt;script&gt;' in html and '<script>alert' not in html
+    assert '<h3 class="h6 mt-3">Computing &amp; Informatics</h3>' in html
+    assert 'Computing &amp;amp; Informatics' not in html
+    assert 'Databases &amp; SQL &lt;script&gt;alert(1)&lt;/script&gt;' in html
     assert 'Your programmes and modules' in html
     assert 'id="lms-settings"' not in html
     assert 'id="account-details" hidden' not in html
@@ -202,3 +205,26 @@ def test_users_frontend_keeps_login_and_redirects_to_dashboard(monkeypatch, comp
     assert client.get("/login").location == ("/dashboard" if completed else "/preferences")
     assert client.get("/account").status_code == 404
     assert client.get("/preferences").status_code == 404
+
+
+@pytest.mark.parametrize('path', ['/dashboard', '/account', '/preferences'])
+def test_dashboard_requires_username_before_other_setup(frontend, monkeypatch, path):
+    app, client = frontend
+    user = {'roles': ['student'], 'email_verified': True,
+            'username_completed': False, 'preferences_completed': False}
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+                        BytesIO(json.dumps({'user': user}).encode()))
+    assert client.get(path).location == '/choose-username'
+    response = client.get('/choose-username')
+    assert response.status_code == 200
+    assert b'id="username-form"' in response.data
+
+
+def test_signup_pages_offer_username_or_first_login_selection():
+    from registration_frontend.app import create_app as create_registration_frontend
+    client = create_registration_frontend().test_client()
+    for path in ['/signup/student', '/signup/college-admin']:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert b'name="username"' in response.data
+        assert b'first sign-in' in response.data

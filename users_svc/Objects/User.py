@@ -11,7 +11,7 @@ from .UserStatus import UserStatus
 class User(UserMixin):
     def __init__(self, username, passhash, email, college_id=None, user_id=None,
                  status=UserStatus.ACTIVE, roles=None, preferences=None, email_verified=True,
-                 preferences_completed=False):
+                 preferences_completed=False, username_completed=True):
         """Build a user with UUID identifiers and enum values, defaulting to an active
         student.
 
@@ -31,6 +31,7 @@ class User(UserMixin):
             email_verified (bool): Whether email ownership is verified. Defaults
                 to True for compatibility with existing accounts.
             preferences_completed (bool): Whether preference onboarding is complete.
+            username_completed (bool): Whether the user has chosen their username.
 
         Raises:
             ValueError: An identifier or enum value is invalid.
@@ -47,6 +48,7 @@ class User(UserMixin):
             self.set_learning_preferences(preferences)
         self.email_verified = email_verified
         self.preferences_completed = preferences_completed
+        self.username_completed = username_completed
 
     def set_learning_preferences(self, preferences):
         """Update supplied scores, preserving unspecified preferences.
@@ -90,4 +92,5 @@ class User(UserMixin):
             "email_verified": self.email_verified,
             "preferences": {pref.value: score for pref, score in self.preferences.items()},
             "preferences_completed": self.preferences_completed,
+            "username_completed": self.username_completed,
         }

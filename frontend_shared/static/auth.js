@@ -55,7 +55,9 @@ function setupForm(id, base, endpoint, destination) {
     showStatus("Please wait…");
     const data = { email: form.elements.email.value.trim(), password: password.value };
     if (form.dataset.accountType) data.account_type = form.dataset.accountType;
-    if (form.elements.username) data.username = form.elements.username.value.trim();
+    if (form.elements.username && form.elements.username.value.trim()) {
+      data.username = form.elements.username.value.trim();
+    }
     if (form.elements.college_id && form.elements.college_id.value) {
       data.college_id = form.elements.college_id.value;
     }
@@ -63,7 +65,9 @@ function setupForm(id, base, endpoint, destination) {
       const result = await submitToAPI(base, endpoint, data);
       if (id === "signup-form") sessionStorage.setItem("verificationEmail", data.email);
       form.reset();
-      if (id === "login-form" && result.user.preferences_completed === false) {
+      if (id === "login-form" && result.user.username_completed === false) {
+        window.location.assign("/choose-username");
+      } else if (id === "login-form" && result.user.preferences_completed === false) {
         window.location.assign("/preferences");
       } else if (id === "login-form" && result.user.roles.includes("college_admin") && !result.user.college_id) {
         window.location.assign("/register-college");
@@ -273,6 +277,9 @@ switch (document.body.dataset.page) {
   case "account":
     loadAccount();
     break;
+  case "choose-username":
+    setupUsername();
+    break;
   case "preferences":
     setupPreferences();
     break;
@@ -370,5 +377,28 @@ async function setupCollegeRegistration() {
       window.location.assign("/account");
     } catch (error) { showStatus(errorMessage(error), true); }
     finally { button.disabled = false; }
+  });
+}
+
+
+function setupUsername() {
+  const form = document.getElementById("username-form");
+  const button = form.querySelector('button[type="submit"]');
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true;
+    showStatus("Saving username…");
+    try {
+      const { user } = await submitToAPI("/api/users", "/users/me/username", {
+        username: form.elements.username.value.trim(),
+      });
+      window.location.assign(user.preferences_completed === false ? "/preferences" :
+        user.roles.includes("college_admin") && !user.college_id ? "/register-college" : "/dashboard");
+    } catch (error) {
+      if (error.status === 401) window.location.replace("/login");
+      else showStatus(errorMessage(error), true);
+      button.disabled = false;
+    }
   });
 }

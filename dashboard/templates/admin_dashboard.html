@@ -6,4 +6,12 @@
 <div class="card"><div class="card-body p-4">
   {% include "_lms_settings.html" %}
 </div></div>
+<section id="tutor-applications" class="card mt-4" data-college-id="{{ user.college_id }}" aria-labelledby="tutor-applications-title">
+  <div class="card-body p-4">
+    <h2 id="tutor-applications-title" class="h5">Tutor applications</h2>
+    <button id="refresh-tutor-applications" type="button" class="btn btn-outline-secondary mb-3">Refresh applications</button>
+    <p id="tutor-review-status" role="status" aria-live="polite"></p>
+    <ul id="tutor-review-list" class="list-group"></ul>
+  </div>
+</section>
 {% endblock %}

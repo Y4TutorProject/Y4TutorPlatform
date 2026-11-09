@@ -1,7 +1,7 @@
     <section class="mt-4" aria-labelledby="moodle-profile-title">
       <h2 id="moodle-profile-title" class="h5">Your Moodle information</h2>
       {% if moodle %}
-      <p class="text-muted">{{ moodle.college.name }}</p>
+      <p class="text-muted">{{ moodle.college.name|moodle_text }}</p>
       <dl>
         <dt>Name</dt><dd>{{ (moodle.student.first_name ~ ' ' ~ moodle.student.last_name)|trim or 'Not provided' }}</dd>
         <dt>Moodle username</dt><dd>{{ moodle.student.username or 'Not provided' }}</dd>
@@ -11,12 +11,12 @@
       {% if moodle.enrolments_available %}
       <h3 class="h6">Your programmes and modules</h3>
         {% for course in moodle.courses %}
-        <h4 class="h6 mt-3">{{ course.name }}{% if course.code %} ({{ course.code }}){% endif %}</h4>
+        <h3 class="h6 mt-3">{{ course.name|moodle_text }}{% if course.code %} ({{ course.code|moodle_text }}){% endif %}</h3>
         {% set course_modules = moodle.modules|selectattr('course_id', 'equalto', course.id)|list %}
         {% if course_modules %}
         <ul>
           {% for module in course_modules %}
-          <li>{{ module.name }}{% if module.code %} ({{ module.code }}){% endif %}</li>
+          <li>{{ module.name|moodle_text }} {% for role in module.roles|default(['student']) %}<span class="badge text-bg-primary">{{ role|capitalize }}</span>{% endfor %}{% if module.code %} ({{ module.code|moodle_text }}){% endif %}</li>
           {% endfor %}
         </ul>
         {% endif %}

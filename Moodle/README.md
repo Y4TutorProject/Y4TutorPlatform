@@ -149,3 +149,57 @@ users alone. It also runs at the end of the full seed. Rerunning the seed or rep
 restores the demo assignment, so manage ongoing registrations through cohort
 membership rather than rerunning the seed. Passwords are not changed.
 Pre-conversion backup: `backups/before-cohort-sync.sql`.
+
+## Tutoring eligibility test accounts (Years 1–4)
+
+`seed_tutoring_years.php` adds eight dedicated students: one per year in DevOps
+and Data Analytics. It reuses their existing Y1 modules and adds nine modules per
+year for Y2–Y4 in each programme. The original 100 demo students keep their existing
+programme and Y1 assignments. Each test account has exactly nine Student
+module enrolments in its own year.
+
+```sh
+docker cp Moodle/scripts moodle-webserver-1:/tmp/tutor-year-seed
+docker exec -u www-data moodle-webserver-1 php /tmp/tutor-year-seed/seed_tutoring_years.php
+docker cp moodle-webserver-1:/var/www/moodledata/tutoring-years.csv Moodle/seed-output/tutoring-years.csv
+chmod 600 Moodle/seed-output/tutoring-years.csv
+```
+
+The private CSV contains individual random passwords, email addresses, programmes,
+and years. It is Git-ignored. Reruns reuse the same credentials and refuse unrelated
+account collisions rather than resetting passwords. These credentials work in
+Moodle; use the following helper to create and verify matching platform accounts
+through the local signup APIs and Mailpit.
+
+First use **Sync now** on the college administrator dashboard to import the added
+Moodle profiles/modules. Local Moodle needs `docker-compose.dev.yml` for the
+`testcollege` network and root certificate. Set
+`COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml` in the local `.env` to
+retain this configuration across routine Compose commands.
+
+```sh
+python3 tests/seed_tutoring_users.py Moodle/seed-output/tutoring-years.csv
+```
+
+The helper completes preference onboarding, verifies module memberships and tutor
+eligibility, and never prints passwords. Use `--college-id <id>` if more than one
+local college uses `student.testcollege.ie`. Both platform and Moodle logins use
+the email/username and individual password listed in the CSV. The platform sign-in
+page asks for the email address.
+
+| Programme | Platform username | Year | Eligible tutor modules |
+| --- | --- | --- | --- |
+| DevOps | `tutor_test_devops_y1` | Y1 | 0 |
+| DevOps | `tutor_test_devops_y2` | Y2 | 9 (Y1) |
+| DevOps | `tutor_test_devops_y3` | Y3 | 18 (Y1–Y2) |
+| DevOps | `tutor_test_devops_y4` | Y4 | 27 (Y1–Y3) |
+| Data Analytics | `tutor_test_analytics_y1` | Y1 | 0 |
+| Data Analytics | `tutor_test_analytics_y2` | Y2 | 9 (Y1) |
+| Data Analytics | `tutor_test_analytics_y3` | Y3 | 18 (Y1–Y2) |
+| Data Analytics | `tutor_test_analytics_y4` | Y4 | 27 (Y1–Y3) |
+
+Each account has nine Student memberships. The tutoring search only shows eligible
+previous-year modules: 0, 9, 18, or 27 results for Y1, Y2, Y3, or Y4 respectively.
+Use the other programme's accounts to check that application access stays scoped
+to the same programme. The seeder does not submit tutor applications or grant
+Tutor membership; those actions remain available to test through the UI.

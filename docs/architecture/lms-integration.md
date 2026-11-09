@@ -164,3 +164,46 @@ Other students' directory records, enrolments, unrelated modules and connection
 credentials are never included. Empty enrolments show an explicit empty state;
 missing imports and dependency outages show a message while leaving the platform
 account usable.
+
+## Module roles and tutor applications
+
+The LMS database stores platform module roles in `module_memberships`, with a
+unique `(college_id, user_id, module_id)` relationship and a `roles` array.
+A verified student's first dashboard/profile or module-search request links their
+platform account to their Moodle enrolments and records `student` on each enrolled
+module. Subsequent reads and Moodle synchronizations refresh these memberships,
+removing Student membership for withdrawn or suspended enrolments while preserving
+independently approved Tutor membership. The Moodle source identity is retained
+for synchronization; module roles do not change the account's global roles or
+write back to Moodle.
+
+`GET /api/lms/students/me/modules?q=...` searches module names and codes in eligible
+previous years of the student's programme. The current academic mapping is department →
+programme → year; a flat catalogue treats its top category as a programme.
+Programme membership is derived from current enrolments, and results exclude
+other programmes and colleges. No enrolments means no programme modules.
+
+`POST /api/lms/students/me/modules/<module_id>/tutor-application` accepts
+`{"grade": 85}` with a required numeric grade from 0 to 100 (decimals allowed). It requires the
+current student's session and users-service CSRF token, checks programme access,
+and creates one pending `tutor_applications` record per user/module. Applications
+are permitted only for modules in earlier years of the same programme, including
+previous-year modules that remain on their Moodle enrolment record. The highest enrolled year per
+programme determines the current year. Year categories must be identifiable as
+`Y1`, `Year 1`, or `Stage 1` (and corresponding numbers); unknown years do not
+grant eligibility. Year 1 students cannot apply. Search only returns eligible previous-year programme
+modules, each with `can_apply_to_tutor` set to true. Ineligible modules are omitted
+from both the API results and the dashboard list. Admin approval
+rechecks current enrolments and eligibility before granting the Tutor role. Repeated
+submissions return the same application; applying does not grant Tutor access.
+
+The college administrator reviews pending applications on their dashboard:
+
+- `GET /api/lms/college/<college_id>/tutor-applications` lists pending applications.
+- `POST /api/lms/college/<college_id>/tutor-applications/<id>/review` accepts
+  `{"decision": "approved"}` or `{"decision": "rejected"}`.
+
+Both admin endpoints verify college ownership and require a session and CSRF
+token. Approval records `tutor` on that module membership and retains an existing
+`student` role. A repeated identical decision is safe; a conflicting decision is
+rejected. Applications remain stored with the reviewer and review time.

@@ -5,12 +5,14 @@ from hashlib import sha256
 from bson import BSON
 
 from .interfaces import LMSImportError, LMSImportStore
+from ..module_participation import ModuleParticipation
 
 
 class MongoLMSImportStore(LMSImportStore):
     def __init__(self, database, colleges):
         self.collection = database['lms_imports']
         self.colleges = colleges
+        self.participation = ModuleParticipation(database)
 
     @staticmethod
     def _id(college_id, provider, source_url):
@@ -37,6 +39,7 @@ class MongoLMSImportStore(LMSImportStore):
         if len(BSON.encode(document)) > 8 * 1024 * 1024:
             raise LMSImportError('Catalog exceeds the import size limit; the previous import is unchanged.')
         self.collection.replace_one({'_id': document['_id']}, document, upsert=True)
+        self.participation.refresh_import(document, academic)
         return self._public(document, academic)
 
     @staticmethod

@@ -1,9 +1,8 @@
-import re
 import secrets
 import uuid
 
 from registration_svc.interfaces.registration_interface import RegistrationInterface
-from users_svc.credentials import hash_password, normalize_email
+from users_svc.credentials import hash_password, normalize_email, normalize_username
 from users_svc.Objects.User import User
 from users_svc.Objects.UserStatus import UserStatus
 
@@ -39,14 +38,9 @@ class RegistrationService(RegistrationInterface):
         """
         if not isinstance(user_data, dict):
             raise ValueError("A JSON object is required.")
-        # The signup screen only asks for email and password. Retain support for
-        # explicit usernames from API clients while generating one when omitted.
-        username = user_data.get("username", "user_" + secrets.token_hex(10))
-        if not isinstance(username, str):
-            raise ValueError("Username is required.")
-        username = username.strip().casefold()
-        if not re.fullmatch(r"[a-z0-9_]{3,30}", username):
-            raise ValueError("Username must contain 3–30 letters, numbers, or underscores.")
+        # API clients may defer their username until the first sign-in.
+        username_completed = "username" in user_data
+        username = normalize_username(user_data.get("username", "user_" + secrets.token_hex(10)))
         email = normalize_email(user_data.get("email"))
         password = user_data.get("password")
         if not isinstance(password, str) or not 9 <= len(password) <= 128:
@@ -74,7 +68,8 @@ class RegistrationService(RegistrationInterface):
                 raise ValueError("Administrators register their college after creating an account.")
             college_id = None
         return {"username": username, "email": email, "password": password,
-                "college_id": college_id, "account_type": account_type}
+                "college_id": college_id, "account_type": account_type,
+                "username_completed": username_completed}
 
     def register_user(self, user_data):
         """Create a pending student or college-administrator account.
@@ -94,6 +89,7 @@ class RegistrationService(RegistrationInterface):
         data = self.validate_user(user_data)
         user = User(data["username"], hash_password(data["password"]), data["email"],
                     college_id=data["college_id"], roles=[data["account_type"]],
-                    status=UserStatus.PENDING_VERIFICATION, email_verified=False)
+                    status=UserStatus.PENDING_VERIFICATION, email_verified=False,
+                    username_completed=data["username_completed"])
         self.dao.add_user(user)
         return user
