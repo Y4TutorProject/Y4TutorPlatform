@@ -63,7 +63,9 @@ function setupForm(id, base, endpoint, destination) {
       const result = await submitToAPI(base, endpoint, data);
       if (id === "signup-form") sessionStorage.setItem("verificationEmail", data.email);
       form.reset();
-      if (id === "login-form" && result.user.roles.includes("college_admin") && !result.user.college_id) {
+      if (id === "login-form" && result.user.preferences_completed === false) {
+        window.location.assign("/preferences");
+      } else if (id === "login-form" && result.user.roles.includes("college_admin") && !result.user.college_id) {
         window.location.assign("/register-college");
       } else {
         window.location.assign(destination);
@@ -117,14 +119,14 @@ async function loadAccount() {
     document.getElementById("account-email").textContent = user.email;
     statusElement.hidden = true;
     document.getElementById("account-details").hidden = false;
-    const settings = document.getElementById("lms-settings");
-    if (settings) {
-      setupLMSImport(settings.dataset.collegeId);
-    }
   } catch (error) {
     if (error.status === 401) window.location.replace("/login");
     else showStatus(errorMessage(error), true);
   }
+  setupSignOut();
+}
+
+function setupSignOut() {
   const button = document.getElementById("logout-button");
   button.addEventListener("click", async () => {
     button.disabled = true;
@@ -262,9 +264,50 @@ switch (document.body.dataset.page) {
   case "register-college":
     setupCollegeRegistration();
     break;
+  case "dashboard": {
+    setupSignOut();
+    const settings = document.getElementById("lms-settings");
+    if (settings) setupLMSImport(settings.dataset.collegeId);
+    break;
+  }
   case "account":
     loadAccount();
     break;
+  case "preferences":
+    setupPreferences();
+    break;
+}
+
+
+function setupPreferences() {
+  const form = document.getElementById("preferences-form");
+  const button = form.querySelector('button[type="submit"]');
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true;
+    form.setAttribute("aria-busy", "true");
+    showStatus("Saving preferences…");
+    const preferences = {};
+    for (const key of ["visual", "auditory", "reading_writing", "kinesthetic"]) {
+      preferences[key] = Number(form.elements[key].value);
+    }
+    try {
+      const { user } = await submitToAPI("/api/users", "/users/me/preferences", { preferences });
+      if (form.dataset.onboarding === "true") {
+        window.location.assign(user.roles.includes("college_admin") && !user.college_id
+          ? "/register-college" : "/dashboard");
+      } else {
+        showStatus("Your learning preferences have been saved.");
+      }
+    } catch (error) {
+      if (error.status === 401) window.location.replace("/login");
+      else showStatus(errorMessage(error), true);
+    } finally {
+      button.disabled = false;
+      form.removeAttribute("aria-busy");
+    }
+  });
 }
 
 

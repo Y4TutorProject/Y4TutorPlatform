@@ -4,7 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function screen(connection = null) {
+function screen(connection = null, page = "") {
   const redirects = [];
   const nodes = new Map();
   function node(id) {
@@ -21,8 +21,9 @@ function screen(connection = null) {
   };
   form.querySelector = () => node("save-button");
   form.reportValidity = () => true;
+  node("lms-settings").dataset = { collegeId: "college-id" };
   const context = vm.createContext({
-    document: { body: { dataset: {} }, getElementById: node },
+    document: { body: { dataset: { page } }, getElementById: node },
     window: { location: { replace(url) { redirects.push(url); } } },
     fetch: async (url) => ({ ok: true, json: async () =>
       url.endsWith("/auth/csrf") ? { csrf_token: "token" } : { connection } }),
@@ -92,4 +93,16 @@ test("A previously saved Moodle selection restores its fields without the API ke
   assert.equal(node("lms-url").value, "https://college.edu");
   assert.equal(node("lms-key").value, "");
   assert.equal(node("lms-sync-button").disabled, false);
+});
+
+
+test("Admin dashboard initializes connection controls and sign out", async () => {
+  const { node, redirects } = screen({
+    provider: "moodle", base_url: "https://college.edu", enabled: true,
+  }, "dashboard");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(node("lms-url").value, "https://college.edu");
+  assert.equal(node("moodle-settings").hidden, false);
+  await node("logout-button").events.click();
+  assert.deepEqual(redirects, ["/login"]);
 });

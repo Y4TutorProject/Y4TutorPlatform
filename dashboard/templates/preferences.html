@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Learning preferences{% endblock %}
+{% block page %}preferences{% endblock %}
+{% block content %}
+  <h1 id="form-title" class="h4">{{ 'Set up your learning preferences' if onboarding else 'Edit your learning preferences' }}</h1>
+  {% if onboarding %}<p>Welcome! Tell us how you like to learn before you continue.</p>{% endif %}
+  <p id="preferences-help">Rate each approach from 0 (no preference) to 10 (strong preference). You can give approaches the same score and change these later in your account.</p>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+  <form id="preferences-form" aria-describedby="preferences-help" data-onboarding="{{ 'true' if onboarding else 'false' }}">
+    <fieldset>
+      <legend class="h5">Your ratings</legend>
+      {% for key, label, description in [
+        ('visual', 'Visual', 'Pictures, diagrams and demonstrations'),
+        ('auditory', 'Auditory', 'Listening to explanations and discussions'),
+        ('reading_writing', 'Reading and writing', 'Reading, writing and explaining in words'),
+        ('kinesthetic', 'Kinesthetic', 'Hands-on activities and practical exercises')
+      ] %}
+      <div class="mb-3">
+        <label for="preference-{{ key }}" class="form-label">{{ label }}</label>
+        <input id="preference-{{ key }}" name="{{ key }}" type="number" min="0" max="10" step="1" required class="form-control"
+               value="{{ (user.preferences or {}).get(key, 0) }}" aria-describedby="help-{{ key }}">
+        <p id="help-{{ key }}" class="form-text">{{ description }}</p>
+      </div>
+      {% endfor %}
+    </fieldset>
+    <button class="btn btn-primary" type="submit">{{ 'Save and continue' if onboarding else 'Save preferences' }}</button>
+  </form>
+  {% if not onboarding %}<p class="mt-3"><a href="/account">Back to your account</a></p>{% endif %}
+  <noscript><p class="alert alert-info mt-3">Enable JavaScript to save your preferences.</p></noscript>
+{% endblock %}

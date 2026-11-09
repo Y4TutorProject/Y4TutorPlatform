@@ -57,6 +57,7 @@ Users (`/api/users`):
 - `POST /auth/logout`
 - `POST /auth/verify` — session and CSRF check used by the college service.
 - `GET /users/me`
+- `POST /users/me/preferences` — saves all four learning preference ratings.
 - `POST /users/me/college` — links an administrator to their own college.
 
 POSTs need `X-CSRFToken` from the receiving service and its session cookie.
@@ -65,6 +66,49 @@ separate session cookies. Passwords are stored as scrypt hashes.
 
 Errors: 400 invalid input or CSRF, 401 invalid login/session, 403 denied access,
 409 duplicate account or membership conflict, 503 service unavailable.
+
+## Signed-in pages
+
+The dashboard service owns `/dashboard`, `/admin-dashboard`, `/account`, and
+`/preferences`, including their templates and `/dashboard/static/` assets.
+`/dashboard` selects the college admin, student, or tutor view using roles returned
+by the users API. College admins see connection and synchronization settings;
+students see their Moodle information and four learning preference scores.
+`/admin-dashboard` requires the `college_admin` role and a registered college.
+The users frontend serves `/login`; authentication and preference APIs remain in
+the users service. Both frontends preserve the session cookie and browser user
+agent when authenticating through the gateway.
+
+## Learning preferences
+
+New accounts complete preference onboarding at `/preferences` after email
+verification and their first sign-in. Each of the four approaches has a rating
+from 0 (no preference) to 10 (strong preference); equal ratings are allowed.
+Saving all four ratings sets `preferences_completed` to true. Incomplete setup
+is shown again on the next sign-in or dashboard visit. Existing accounts without
+the completion field retain access without mandatory onboarding.
+
+Users can edit their saved ratings through **Your account → Edit your learning
+preferences**. `POST /api/users/users/me/preferences` accepts
+`{"preferences": {"visual": 5, "auditory": 3, "reading_writing": 4, "kinesthetic": 8}}`.
+It requires a signed-in session, a CSRF token, and all four scores, and updates
+only the current account. College administrators continue to college registration
+after preference setup if they have not yet registered their college.
+
+The users service can save learning preference scores for an existing user:
+
+```python
+user = users_service.set_learning_preferences(user_id, {
+    "visual": 5,
+    "auditory": 3,
+})
+```
+
+Supported keys are `visual`, `auditory`, `reading_writing`, and `kinesthetic`,
+or their `LearningTeachingStyles` enum members. Scores must be integers from 0 to 10 inclusive.
+Unspecified scores keep their current values and default to zero for new or
+legacy accounts. Invalid input raises `ValueError`; an unknown user returns
+`None`. Scores are saved to MongoDB and included in public user details.
 
 ## Tests
 

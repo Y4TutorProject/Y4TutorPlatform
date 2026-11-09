@@ -68,11 +68,21 @@ class MongoUsersDAO(UsersDAO):
         """
         if data is None:
             return None
+        preferences = data.get("preferences")
+        if isinstance(preferences, dict):
+            # Normalize stored scores from before LearningTeachingStyles.
+            # Keep an explicit new-style score when both names are present.
+            preferences = preferences.copy()
+            if "verbal" in preferences:
+                preferences.setdefault("reading_writing", preferences.pop("verbal"))
+            preferences.pop("logical", None)
         return User(
             username=data["username"], passhash=data["passhash"], email=data["email"],
             college_id=data.get("college"), user_id=data["id"],
             status=data["status"], roles=data["roles"],
             email_verified=data.get("email_verified", True),
+            preferences=preferences,
+            preferences_completed=data.get("preferences_completed", True),
         )
 
     def add_user(self, user):

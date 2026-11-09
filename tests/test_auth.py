@@ -192,6 +192,53 @@ def test_secure_cookie_configuration(app):
     assert "Secure" in cookie and "HttpOnly" in cookie and "SameSite=Lax" in cookie
 
 
+def test_preference_onboarding_and_later_edits(app, client, signup):
+    user = signup(preferences_completed=True).json["user"]
+    assert user["preferences_completed"] is False
+    assert login(client).json["user"]["preferences_completed"] is False
+    scores = {"visual": 10, "auditory": 0, "reading_writing": 4, "kinesthetic": 8}
+    response = post(client, "/users/me/preferences", {"preferences": scores})
+    assert response.status_code == 200
+    assert response.json["user"]["preferences_completed"] is True
+    assert response.json["user"]["preferences"] == scores
+    scores["visual"] = 2
+    assert post(client, "/users/me/preferences", {"preferences": scores}).status_code == 200
+    assert client.get("/users/me").json["user"]["preferences"] == scores
+    assert app.extensions["users_dao"].get_user(user["id"]).preferences_completed is True
+
+
+@pytest.mark.parametrize("preferences", [None, {}, {"visual": 5}, {
+    "visual": 11, "auditory": 0, "reading_writing": 4, "kinesthetic": 8,
+}])
+def test_invalid_onboarding_does_not_complete_or_save(client, signup, preferences):
+    signup()
+    login(client)
+    response = post(client, "/users/me/preferences", {"preferences": preferences})
+    assert response.status_code == 400
+    user = client.get("/users/me").json["user"]
+    assert user["preferences_completed"] is False
+    assert all(score == 0 for score in user["preferences"].values())
+
+
+def test_preferences_require_session_and_csrf(client, signup):
+    assert post(client, "/users/me/preferences", {}).status_code == 401
+    signup()
+    login(client)
+    assert client.post("/users/me/preferences", json={}).status_code == 400
+
+
+def test_preference_update_only_changes_current_account(app, client, signup):
+    signup()
+    other = signup(username="other_student", email="other@example.com").json["user"]
+    login(client)
+    scores = {pref: 7 for pref in ("visual", "auditory", "reading_writing", "kinesthetic")}
+    response = post(client, "/users/me/preferences", {"preferences": scores, "user_id": other["id"]})
+    assert response.status_code == 200
+    unchanged = app.extensions["users_dao"].get_user(other["id"])
+    assert unchanged.preferences_completed is False
+    assert all(score == 0 for score in unchanged.preferences.values())
+
+
 def test_session_expiry(app, client, signup):
     signup()
     login(client)
@@ -333,3 +380,18 @@ def test_smtp_failure_leaves_recoverable_pending_account(registration_app, regis
     monkeypatch.setattr(mailer, "send_verification", original)
     post(registration_client, "/auth/resend-verification", {"email": ACCOUNT["email"]})
     assert verify_latest(registration_client, mailer).status_code == 200
+
+
+def test_signed_in_account_with_old_preferences_remains_accessible(app, client, signup):
+    user = signup().json["user"]
+    assert login(client).status_code == 200
+    app.extensions["users_dao"].collection.update_one(
+        {"id": user["id"]}, {"$set": {"preferences": {
+            "visual": 8, "auditory": 3, "verbal": 7, "kinesthetic": 6, "logical": 9,
+        }}},
+    )
+    response = client.get("/users/me")
+    assert response.status_code == 200
+    assert response.json["user"]["preferences"] == {
+        "visual": 8, "auditory": 3, "reading_writing": 7, "kinesthetic": 6,
+    }

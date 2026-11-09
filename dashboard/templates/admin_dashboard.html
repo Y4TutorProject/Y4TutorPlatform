@@ -1,0 +1,9 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block dashboard_content %}
+<h1>Admin Dashboard</h1>
+<p>Welcome, {{ user.username }}! Manage your college's system connection and Moodle synchronization.</p>
+<div class="card"><div class="card-body p-4">
+  {% include "_lms_settings.html" %}
+</div></div>
+{% endblock %}

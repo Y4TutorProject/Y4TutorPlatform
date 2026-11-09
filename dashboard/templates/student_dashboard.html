@@ -1,16 +1,14 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Student Dashboard</title>
-</head>
-<body>
-  <main>
-    <h1>Student Dashboard</h1>
-    <p>Welcome, {{ username }}!</p>
-    <a href="/account">My Account</a>
-  </main>
-</body>
-
-</html>
+{% extends "dashboard_base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block dashboard_content %}
+<h1>Student Dashboard</h1>
+<p>Welcome, {{ user.username }}!</p>
+<div class="row g-4">
+  <div class="col-12 col-lg-4"><div class="card h-100"><div class="card-body p-4">
+    {% include "_learning_preferences.html" %}
+  </div></div></div>
+  <div class="col-12 col-lg-8"><div class="card h-100"><div class="card-body p-4">
+    {% include "_moodle_profile.html" %}
+  </div></div></div>
+</div>
+{% endblock %}

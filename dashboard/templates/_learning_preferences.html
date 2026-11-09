@@ -1,0 +1,16 @@
+    <section aria-labelledby="learning-preferences-title">
+      <h2 id="learning-preferences-title">Your learning preferences</h2>
+      <p>Your ratings from 0 (no preference) to 10 (strong preference).</p>
+      <dl>
+        {% for key, label in [
+          ('auditory', 'Auditory'),
+          ('visual', 'Visual'),
+          ('reading_writing', 'Reading and writing'),
+          ('kinesthetic', 'Kinesthetic')
+        ] %}
+        <dt>{{ label }}</dt>
+        <dd>{{ (user.preferences or {}).get(key, 0) }} / 10</dd>
+        {% endfor %}
+      </dl>
+      <a href="/preferences">Edit your learning preferences</a>
+    </section>

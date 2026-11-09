@@ -72,6 +72,15 @@ class UsersDAO(ABC):
 
 class UsersInterface(ABC):
     @abstractmethod
+    def set_learning_preferences(self, user_uuid, preferences):
+        """Save preference scores and return the updated user, or None if missing.
+
+        Keys are LearningTeachingStyles members or lowercase names; scores are integers
+        from 0 to 10 inclusive. Invalid preferences raise ValueError.
+        """
+        pass
+
+    @abstractmethod
     def log_in(self, email, password):
         """Return an active user for valid credentials, or None when authentication
         fails.
