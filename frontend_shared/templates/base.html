@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · TutorPlatform</title>
+  {% block head %}{% endblock %}
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
   <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
@@ -16,6 +18,7 @@
       <div class="d-flex gap-3">
         <a href="/login">Sign in</a>
         <a href="/signup">Register</a>
+        <a href="/api/dashboard/messages">Messages</a>
       </div>
     </div>
   </nav>
