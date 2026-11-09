@@ -227,3 +227,26 @@ class MongoUsersDAO(UsersDAO):
             {"$set": {"username": username, "username_completed": True}},
         )
         return result.matched_count == 1
+    
+
+    def list_tutors(self, college_id):
+        """Return active, verified tutors belonging to a college.
+
+        Args:
+            college_id (str | None): College UUID to filter by.
+
+        Returns:
+            list[User]: Matching tutors sorted by username; empty if none.
+
+        Raises:
+            PyMongoError: The database operation fails.
+        """
+        if not college_id:
+            return []
+        cursor = self.collection.find({
+            "roles": "tutor",
+            "college": str(college_id),
+            "status": "active",
+            "email_verified": True,
+        }).sort("username", ASCENDING)
+        return [self._from_document(doc) for doc in cursor]

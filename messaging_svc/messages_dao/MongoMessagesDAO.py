@@ -140,6 +140,10 @@ class MongoMessagesDAO:
             )
         )
 
+    def get_next_chat_id(self):
+        latest = self.chats.find_one(sort=[("id", DESCENDING)])
+        return str(int(latest["id"]) + 1) if latest else "1"
+
     def get_next_message_id(self):
         latest = self.messages.find_one(sort=[("id", DESCENDING)])
         return str(int(latest["id"]) + 1) if latest else "1"

@@ -2,9 +2,10 @@
 import os
 import uuid
 
-from flask import Flask, jsonify, request
+from flask import Flask, app, jsonify, request
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+import requests
 
 from .auth import AuthenticationError, UsersAuthClient
 from .college_client import CollegeClient, CollegeServiceUnavailable
@@ -15,6 +16,7 @@ from .lms.store import MongoLMSImportStore
 from .sync import LMSSyncService
 from .module_participation import ModuleParticipation, programme_modules, tutor_modules, enrolment_roles
 
+import logging
 
 def create_app(config=None, database=None, auth_client=None, college_client=None,
                providers=None, import_store=None, connection_store=None, participation_store=None):
@@ -127,6 +129,14 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         available = tutor_modules(catalog, modules, profile)
         details = participation.module_details(user, available, query)
         return jsonify(modules=[{**m, 'can_apply_to_tutor': True} for m in details])
+
+    @app.get("/students/me/modules/<module_id>/tutors")
+    def tutors_for_module(module_id):
+        user, _, catalog, _, modules = student_context()
+        available = programme_modules(catalog, modules)
+        if module_id not in {module['id'] for module in available}:
+            raise AuthenticationError("Module not found in your programme.", 404)
+        return jsonify(tutor_ids=participation.tutors_for_module(user['college_id'], module_id))
 
     @app.post("/students/me/modules/<module_id>/tutor-application")
     def apply_to_tutor(module_id):

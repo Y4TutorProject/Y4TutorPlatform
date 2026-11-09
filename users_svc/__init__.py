@@ -132,5 +132,7 @@ def create_app(config=None, dao=None):
         return response
 
     from .auth import auth
+
     app.register_blueprint(auth)
+
     return app

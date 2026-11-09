@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block body_class %}student-dashboard-page{% endblock %}
+{% block page %}student-dashboard{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='student_dashboard.css') }}">
+<script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
+{% endblock %}
+{% block main %}
+<main class="student-dashboard">
+  <header class="dashboard-intro">
+    <h1>Find your tutor</h1>
+    <p>Welcome{% if username %}, {{ username }}{% endif %}. Select a module to find your tutor.</p>
+  </header>
+
+  <div class="dashboard-layout">
+    <aside class="module-sidebar" aria-labelledby="modules-title">
+      <div class="sidebar-heading">
+        <div>
+          <h2 id="modules-title">Your modules</h2>
+        </div>
+        <span class="module-count" aria-label="{{ modules|length }} modules">{{ modules|length }}</span>
+      </div>
+      <p class="sidebar-description">Select a module to see available tutors.</p>
+      {% if moodle_error %}
+      <p class="sidebar-message" role="status">{{ moodle_error }}</p>
+      {% elif not modules %}
+      <p class="sidebar-message">No modules found.</p>
+      {% else %}
+      <ul class="module-list">
+        {% for module in modules %}
+        <li>
+          <button type="button" class="module-btn" data-module="{{ module.module_id }}" aria-pressed="false">
+            <span class="module-icon" aria-hidden="true">{{ loop.index }}</span>
+            <span class="module-name">{{ module.module_name }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </aside>
+
+    <section class="tutor-section" aria-labelledby="tutors-title">
+      <div class="tutor-heading">
+        <div>
+          <h2 id="tutors-title">Your tutors</h2>
+          <p id="selected-module">Choose a module to get started.</p>
+        </div>
+      </div>
+      <div id="tutor-results" aria-live="polite" aria-busy="false">
+        <div class="tutor-state">
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

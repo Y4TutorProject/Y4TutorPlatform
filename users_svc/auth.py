@@ -89,6 +89,22 @@ def me():
     return jsonify(user=current_user.to_public_dict())
 
 
+@auth.get("/users/<user_id>")
+@login_required
+def get_user_profile(user_id):
+    """Return general profile details for another active user in the caller's college.
+
+    Returns:
+        Response | tuple[Response, int]: JSON profile, or 404 when the user does
+            not exist, is inactive, or belongs to a different college.
+    """
+    user = current_app.extensions["users_dao"].get_user(user_id)
+    if (user is None or not user.is_active or current_user.college is None
+            or user.college != current_user.college):
+        return jsonify(error="User not found."), 404
+    return jsonify(user=user.to_profile_dict())
+
+
 @auth.post("/auth/verify")
 @login_required
 def verify():

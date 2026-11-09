@@ -152,7 +152,8 @@ def test_student_moodle_information_is_rendered_and_escaped(frontend, monkeypatc
     response = client.get('/dashboard')
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert 'moodle-student' in html and 'Databases' in html and 'Computing' in html
+    assert 'Welcome, moodle-student' in html
+    assert 'Databases' in html and 'Computing' in html
     assert '&lt;script&gt;' in html and '<script>alert' not in html
     assert '<h3 class="h6 mt-3">Computing &amp; Informatics</h3>' in html
     assert 'Computing &amp;amp; Informatics' not in html
@@ -218,6 +219,32 @@ def test_dashboard_requires_username_before_other_setup(frontend, monkeypatch, p
     response = client.get('/choose-username')
     assert response.status_code == 200
     assert b'id="username-form"' in response.data
+
+
+def test_choose_username_route_renders_onboarding_for_incomplete_user(frontend, monkeypatch):
+    app, client = frontend
+    user = {'roles': ['student'], 'email_verified': True,
+            'username_completed': False, 'preferences_completed': True}
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+                        BytesIO(json.dumps({'user': user}).encode()))
+
+    response = client.get('/choose-username')
+
+    assert response.status_code == 200
+    assert b'id="username-form"' in response.data
+
+
+def test_choose_username_route_redirects_completed_user_to_dashboard(frontend, monkeypatch):
+    app, client = frontend
+    user = {'roles': ['student'], 'email_verified': True,
+            'username_completed': True, 'preferences_completed': True}
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+                        BytesIO(json.dumps({'user': user}).encode()))
+
+    response = client.get('/choose-username')
+
+    assert response.status_code == 302
+    assert response.location == '/dashboard'
 
 
 def test_signup_pages_offer_username_or_first_login_selection():

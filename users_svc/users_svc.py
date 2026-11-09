@@ -7,7 +7,6 @@ from .interfaces.users_interface import UsersInterface
 from .Objects.UserStatus import UserStatus
 from .Objects.LearningTeachingStyles import LearningTeachingStyles
 
-
 class UsersService(UsersInterface):
     def __init__(self, dao):
         """Store the DAO and prepare a dummy password hash for unknown-account checks.
