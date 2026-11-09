@@ -10,7 +10,7 @@ from urllib.parse import quote
 import hashlib
 import hmac
 
-from flask import Flask, abort, make_response, redirect, render_template, request, Response
+from flask import Flask, abort, make_response, redirect, render_template, request, session
 from jinja2 import ChoiceLoader, FileSystemLoader
 from clean_text import clean_deep
 import requests
@@ -160,10 +160,19 @@ def create_app(config=None):
             "student_dashboard.html",
             username=student.get("username"),
             user=user,
+            role="student",
             can_manage_college=can_manage_college,
             modules=modules,
             moodle_error=moodle_error,
         )
+    
+    def render_admin_dashboard():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        return render_template("admin_dashboard.html", user=user)
 
     @app.get("/dashboard")
     def dashboard():
@@ -176,17 +185,53 @@ def create_app(config=None):
             return redirect("/choose-username")
         roles = user.get("roles") or []
         can_manage_college = "college_admin" in roles and bool(user.get("college_id"))
+        if "tutor" in roles:
+            return render_template(
+                "tutor_dashboard.html",
+                role = "tutor",
+                user=user,
+                can_manage_college=can_manage_college,
+                is_student=False,
+        )
         if "student" in roles:
             return render_student_dashboard(user, can_manage_college)
         if can_manage_college:
             return render_template(
                 "admin_dashboard.html",
                 user=user,
+                role="admin",
                 can_manage_college=can_manage_college,
                 is_student=False,
             )
         return redirect("/account")
 
+    @app.get("/account")
+    def account():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        roles = user.get("roles") or []
+        can_manage_college = "college_admin" in roles and bool(user.get("college_id"))
+        return render_template(
+            "account.html",
+            user=user,
+            can_manage_college=can_manage_college,
+        )
+
+    @app.get("/preferences")
+    def preferences():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        return render_template(
+            "preferences.html",
+            user=user,
+        )
+    
     @app.get("/get_tutors")
     def get_tutors():
         user = authenticated_user()
@@ -304,7 +349,7 @@ def create_app(config=None):
             openChat=chat_id,
         )
         return forward_messaging_cookie(make_response(rendered), client)
-
+    
     @app.get("/messages")
     def messages():
         user = authenticated_user()

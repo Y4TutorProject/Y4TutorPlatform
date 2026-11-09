@@ -7,6 +7,7 @@
     <div class="d-flex gap-3 align-items-center">
       <a href="/dashboard">Dashboard</a>
       <a href="/account">My account</a>
+      <a href="/getmessages">Messages</a>
       <button class="btn btn-outline-secondary" id="logout-button" type="button">Sign out</button>
     </div>
   </div>
@@ -15,6 +16,7 @@
 {% block main %}
 <main class="container py-5">
   <script src="{{ url_for('static', filename='modules.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
   <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   {% block dashboard_content %}{% endblock %}
 </main>
