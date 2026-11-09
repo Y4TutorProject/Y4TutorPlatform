@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import os
 from http.cookies import SimpleCookie
+from html import unescape
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -18,6 +19,9 @@ def create_app(config=None):
     shared = Path(__file__).resolve().parent.parent / "frontend_shared"
     app = Flask(__name__, static_folder=str(shared / "static"), static_url_path="/dashboard/static")
     app.jinja_loader = ChoiceLoader([app.jinja_loader, FileSystemLoader(shared / "templates")])
+    # LMS names may contain encoded entities. Return plain text so Jinja
+    # still escapes any HTML after decoding it.
+    app.jinja_env.filters["lms_text"] = lambda value: unescape(str(value)) if value is not None else ""
     # Use the same gateway hop as browser API calls to preserve Flask-Login's
     # session binding to the user agent and immediate peer address.
     app.config["USERS_API_URL"] = os.getenv("USERS_API_URL", "http://gateway/api/users")
@@ -49,7 +53,7 @@ def create_app(config=None):
             abort(503)
         return user if isinstance(user, dict) else None
 
-    def student_moodle():
+    def student_lms():
         cookie = SimpleCookie()
         cookie["tutor_session"] = request.cookies["tutor_session"]
         upstream = Request(
@@ -65,13 +69,13 @@ def create_app(config=None):
             if error.code == 401:
                 return None, "session_expired"
             message = (
-                "Your Moodle profile is not available yet. Ask your college administrator to check "
-                "that your verified email matches Moodle and that the college has synchronized."
+                "Your LMS profile is not available yet. Ask your college administrator to check "
+                "that your verified email matches LMS and that the college has synchronized."
                 if error.code == 404 else
-                "Moodle information is temporarily unavailable. Please try again later."
+                "LMS information is temporarily unavailable. Please try again later."
             )
         except (URLError, OSError, ValueError):
-            message = "Moodle information is temporarily unavailable. Please try again later."
+            message = "LMS information is temporarily unavailable. Please try again later."
         return None, message
 
     @app.get("/dashboard")
@@ -88,6 +92,8 @@ def create_app(config=None):
             abort(403)
         if user.get("email_verified") is not True:
             return redirect("/verify-email")
+        if user.get("username_completed") is False:
+            return redirect("/choose-username")
         if user.get("preferences_completed") is False:
             return redirect("/preferences")
         if is_admin:
@@ -95,20 +101,31 @@ def create_app(config=None):
                 return redirect("/register-college")
             return render_template("admin_dashboard.html", user=user)
         if "student" in roles:
-            moodle, moodle_error = student_moodle()
-            if moodle_error == "session_expired":
+            lms, lms_error = student_lms()
+            if lms_error == "session_expired":
                 return redirect("/login")
             return render_template("student_dashboard.html", user=user,
-                                   moodle=moodle, moodle_error=moodle_error)
+                                   lms=lms, lms_error=lms_error)
         if "tutor" in roles:
             return render_template("tutor_dashboard.html", user=user)
         abort(403)
+
+    @app.get("/choose-username")
+    def choose_username():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if user.get("username_completed") is not False:
+            return redirect("/dashboard")
+        return render_template("choose_username.html", user=user)
 
     @app.get("/preferences")
     def preferences():
         user = authenticated_user()
         if user is None:
             return redirect("/login")
+        if user.get("username_completed") is False:
+            return redirect("/choose-username")
         return render_template("preferences.html", user=user,
                                onboarding=user.get("preferences_completed") is False)
 
@@ -119,6 +136,8 @@ def create_app(config=None):
             return redirect("/login")
         if not isinstance(user, dict) or user.get("email_verified") is not True:
             abort(503)
+        if user.get("username_completed") is False:
+            return redirect("/choose-username")
         return render_template("account.html", user=user)
 
     @app.after_request

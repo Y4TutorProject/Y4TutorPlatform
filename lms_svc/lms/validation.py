@@ -42,18 +42,30 @@ def validate_catalog(catalog):
                     if not isinstance(suspended, bool):
                         raise ValueError()
                     clean["suspended"] = suspended
+                    if 'current_year' in record:
+                        year = record['current_year']
+                        if year is not None and (type(year) is not int or not 1 <= year <= 20):
+                            raise ValueError()
+                        clean['current_year'] = year
                 else:
                     clean["name"] = text(record["name"], 1000, required=True)
-                    for field in ("code", "type"):
+                    for field in ("code", "type", "kind"):
                         if field in record:
                             clean[field] = text(record[field], 200)
                     if kind == "courses" and "parent_id" in record:
                         clean["parent_id"] = identifier(record["parent_id"]) if record["parent_id"] is not None else None
                     if kind == "modules":
                         clean["course_id"] = identifier(record["course_id"])
+                        if 'programme_id' in record:
+                            clean['programme_id'] = identifier(record['programme_id'])
+                        if 'year' in record:
+                            year = record['year']
+                            if year is not None and (type(year) is not int or not 1 <= year <= 20):
+                                raise ValueError()
+                            clean['year'] = year
                 normalized[kind].append(clean)
         courses = {c["source_id"]: c for c in normalized["courses"]}
-        if any(m["course_id"] not in courses for m in normalized["modules"]):
+        if any(m["course_id"] not in courses or m.get("programme_id", m["course_id"]) not in courses for m in normalized["modules"]):
             raise ValueError()
         # Reject missing parents and cycles before publishing programme hierarchy.
         done = set()
@@ -72,17 +84,22 @@ def validate_catalog(catalog):
         if not isinstance(enrolments, list) or len(enrolments) > 500000:
             raise ValueError()
         users = {u["source_id"]: u for u in normalized["users"]}
-        # Moodle courses map to academic modules, or to courses in activity mode.
-        targets = {m["source_id"] for m in normalized["modules"]} if catalog.get("mapping", "academic") == "academic" else set(courses)
-        normalized["enrolments"] = []
+        module_ids = {m['source_id'] for m in normalized['modules']}
+        normalized['enrolments'] = []
         seen = set()
         for record in enrolments:
-            user_id = identifier(record["user_source_id"])
-            course_id = identifier(record["course_source_id"])
-            if user_id not in users or users[user_id]["suspended"] or course_id not in targets or (user_id, course_id) in seen:
+            user_id = identifier(record['user_source_id'])
+            target_id = identifier(record.get('target_source_id', record.get('course_source_id')))
+            kind = record.get('target_type', 'module' if catalog.get('mapping', 'academic') == 'academic' else 'course')
+            targets = module_ids if kind == 'module' else set(courses) if kind == 'course' else set()
+            roles = record.get('roles', ['student'])
+            if not isinstance(roles, list) or len(roles) != len(set(roles)) or any(role not in ('student', 'lecturer') for role in roles):
                 raise ValueError()
-            seen.add((user_id, course_id))
-            normalized["enrolments"].append({"user_source_id": user_id, "course_source_id": course_id})
+            if user_id not in users or users[user_id]['suspended'] or target_id not in targets or (user_id, kind, target_id) in seen:
+                raise ValueError()
+            seen.add((user_id, kind, target_id))
+            normalized['enrolments'].append({'user_source_id': user_id, 'course_source_id': target_id,
+                                              'target_type': kind, 'roles': roles})
         if enrolments and not available:
             raise ValueError()
         normalized["enrolments_available"] = available

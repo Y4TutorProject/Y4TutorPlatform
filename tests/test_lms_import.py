@@ -122,7 +122,7 @@ def test_optional_activity_mapping(integration):
     assert response.status_code == 200
     assert response.json["mapping"] == "activities"
     catalog = client.get(path + "/catalog", query_string={"base_url": payload["base_url"]}, headers=headers).json["catalog"]
-    assert catalog["modules"][0]["course_id"] == catalog["courses"][0]["id"]
+    assert any(c["id"] == catalog["modules"][0]["course_id"] for c in catalog["courses"])
     assert catalog["modules"][0]["name"] == "Quiz"
 
 

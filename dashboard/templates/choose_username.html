@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Choose your username{% endblock %}
+{% block page %}choose-username{% endblock %}
+{% block content %}
+<h1 id="form-title" class="h4">Choose your username</h1>
+<p>Choose the username other students and tutors will see.</p>
+<p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+<form id="username-form">
+  <div class="mb-3">
+    <label for="username" class="form-label">Username</label>
+    <input id="username" name="username" class="form-control" type="text" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" aria-describedby="username-help" required>
+    <p id="username-help" class="form-text">Use 3–30 letters, numbers, or underscores. Usernames are saved in lowercase and must be unique.</p>
+  </div>
+  <button class="btn btn-primary" type="submit">Save and continue</button>
+</form>
+<noscript><p class="alert alert-info mt-3">Enable JavaScript to save your username.</p></noscript>
+{% endblock %}

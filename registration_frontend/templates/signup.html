@@ -20,6 +20,11 @@
     {% endif %}
     <div class="signup-fields">
       <div class="auth-field">
+        <label class="form-label" for="username">Username (optional)</label>
+        <input class="form-control" id="username" name="username" type="text" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" aria-describedby="username-help">
+        <p id="username-help" class="form-text">Use 3–30 letters, numbers, or underscores. Choose now, or leave blank to choose on your first sign-in.</p>
+      </div>
+      <div class="auth-field">
         <label class="form-label" for="email">Email address</label>
         <input class="form-control" id="email" name="email" type="email" autocomplete="email" required>
       </div>

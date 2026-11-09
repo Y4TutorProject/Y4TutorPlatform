@@ -55,7 +55,9 @@ function setupForm(id, base, endpoint, destination) {
     showStatus("Please wait…");
     const data = { email: form.elements.email.value.trim(), password: password.value };
     if (form.dataset.accountType) data.account_type = form.dataset.accountType;
-    if (form.elements.username) data.username = form.elements.username.value.trim();
+    if (form.elements.username && form.elements.username.value.trim()) {
+      data.username = form.elements.username.value.trim();
+    }
     if (form.elements.college_id && form.elements.college_id.value) {
       data.college_id = form.elements.college_id.value;
     }
@@ -63,7 +65,9 @@ function setupForm(id, base, endpoint, destination) {
       const result = await submitToAPI(base, endpoint, data);
       if (id === "signup-form") sessionStorage.setItem("verificationEmail", data.email);
       form.reset();
-      if (id === "login-form" && result.user.preferences_completed === false) {
+      if (id === "login-form" && result.user.username_completed === false) {
+        window.location.assign("/choose-username");
+      } else if (id === "login-form" && result.user.preferences_completed === false) {
         window.location.assign("/preferences");
       } else if (id === "login-form" && result.user.roles.includes("college_admin") && !result.user.college_id) {
         window.location.assign("/register-college");
@@ -146,24 +150,72 @@ async function setupLMSImport(collegeId) {
   const status = document.getElementById("lms-status");
   const saveButton = form.querySelector("button[type=submit]");
   const syncButton = document.getElementById("lms-sync-button");
-  const moodleSettings = document.getElementById("moodle-settings");
+  const settings = document.getElementById("provider-settings");
   const providerHelp = document.getElementById("lms-provider-help");
+  const mappingOptions = document.getElementById("provider-mapping-options");
   const base = `/api/lms/college/${encodeURIComponent(collegeId)}/lms`;
-  let saved = false;
-  let enabled = false;
-  let sessionExpired = false;
-  function selectProvider() {
-    const provider = form.elements.provider.value;
-    moodleSettings.hidden = provider !== "moodle";
-    moodleSettings.disabled = provider !== "moodle";
-    providerHelp.hidden = !provider || provider === "moodle";
-    if (provider !== "moodle") {
+  let saved = false, enabled = false, sessionExpired = false;
+  let definitions = [], inputs = new Map();
+  function expired(error) {
+    if (error.status === 401 && !sessionExpired) {
+      sessionExpired = true;
+      saveButton.disabled = syncButton.disabled = true;
       form.elements.api_key.value = "";
-      status.textContent = "";
+      error.message = "Your session has expired. Sign in again to manage your LMS connection.";
+      window.location.replace("/login");
     }
   }
-  form.elements.provider.addEventListener("change", selectProvider);
-  selectProvider();
+  function selectProvider(values = {}) {
+    const definition = definitions.find(item => item.id === form.elements.provider.value);
+    settings.hidden = settings.disabled = !definition;
+    providerHelp.hidden = !form.elements.provider.value || Boolean(definition);
+    syncButton.disabled = true;
+    inputs = new Map();
+    mappingOptions.replaceChildren();
+    if (!definition) {
+      form.elements.api_key.value = "";
+      return;
+    }
+    document.getElementById("provider-settings-title").textContent = definition.label + " connection";
+    for (const field of definition.fields) {
+      const group = document.createElement("div");
+      group.className = "mb-3";
+      const label = document.createElement("label");
+      label.className = "form-label";
+      label.htmlFor = "lms-option-" + field.name;
+      label.textContent = field.label;
+      const input = document.createElement(field.type === "select" ? "select" : field.type === "json" ? "textarea" : "input");
+      input.id = label.htmlFor;
+      input.name = "option_" + field.name;
+      input.className = field.type === "select" ? "form-select" : "form-control";
+      const value = values[field.name] === undefined ? field.default : values[field.name];
+      if (field.type === "select") {
+        for (const [key, title] of Object.entries(field.choices)) {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = title;
+          input.append(option);
+        }
+      } else if (field.type === "integer") {
+        input.type = "number";
+        input.min = field.min;
+        input.max = field.max;
+        input.step = "1";
+      } else if (field.type === "json") {
+        input.rows = 6;
+      } else {
+        input.type = "text";
+      }
+      input.required = field.type !== "list";
+      input.value = field.type === "json" ? JSON.stringify(value, null, 2) : field.type === "list" ? value.join(", ") : String(value);
+      inputs.set(field.name, { field, input });
+      group.append(label, input);
+      mappingOptions.append(group);
+    }
+  }
+  form.elements.provider.addEventListener("change", () => { form.elements.api_key.value = ""; selectProvider(); });
+  settings.hidden = settings.disabled = true;
+  form.elements.provider.disabled = saveButton.disabled = true;
   async function call(path, method = "GET", data) {
     try {
       const { csrf_token } = await requestJSON("/api/users/auth/csrf");
@@ -171,29 +223,21 @@ async function setupLMSImport(collegeId) {
         method, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf_token },
         ...(data === undefined ? {} : { body: JSON.stringify(data) }),
       });
-    } catch (error) {
-      if (error.status === 401) {
-        sessionExpired = true;
-        saveButton.disabled = syncButton.disabled = true;
-        form.elements.api_key.value = "";
-        error.message = "Your session has expired. Sign in again to manage your Moodle connection.";
-        window.location.replace("/login");
-      }
-      throw error;
-    }
+    } catch (error) { expired(error); throw error; }
   }
   function display(connection) {
     saved = Boolean(connection);
     enabled = Boolean(connection && connection.enabled);
-    syncButton.disabled = !enabled;
     if (!connection) {
+      selectProvider();
       status.textContent = "No college system connected yet.";
       return;
     }
     form.elements.provider.value = connection.provider;
-    selectProvider();
+    selectProvider(connection.provider_options || {});
     form.elements.base_url.value = connection.base_url;
     form.elements.enabled.checked = connection.enabled;
+    syncButton.disabled = !enabled;
     const schedule = connection.enabled
       ? `Next sync: ${new Date(connection.next_sync_at).toLocaleString("en-IE", { timeZone: connection.timezone })} (${connection.timezone}).`
       : "Nightly synchronization is paused.";
@@ -201,27 +245,49 @@ async function setupLMSImport(collegeId) {
       ? `Last successful sync: ${new Date(connection.last_success_at).toLocaleString("en-IE", { timeZone: connection.timezone })}.`
       : "Awaiting first successful sync.";
     const counts = connection.counts
-      ? `${connection.counts.users} users, ${connection.counts.courses} programmes, ${connection.counts.modules} modules.` : "";
+      ? `${connection.counts.users} users, ${connection.counts.courses} academic categories, ${connection.counts.modules} modules.` : "";
     status.textContent = [schedule, last, counts, connection.last_error].filter(Boolean).join(" ");
   }
   try {
-    display((await call("/connection")).connection);
+    const [catalog, current] = await Promise.all([requestJSON("/api/lms/providers"), call("/connection")]);
+    definitions = catalog.providers;
+    const options = [document.createElement("option")];
+    options[0].value = "";
+    options[0].textContent = "Select your college system";
+    for (const definition of definitions) {
+      const option = document.createElement("option");
+      option.value = definition.id;
+      option.textContent = definition.label;
+      options.push(option);
+    }
+    form.elements.provider.replaceChildren(...options);
+    form.elements.provider.disabled = saveButton.disabled = false;
+    display(current.connection);
   } catch (error) {
+    expired(error);
     status.textContent = errorMessage(error);
   }
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", async event => {
     event.preventDefault();
-    if (form.elements.provider.value !== "moodle" || saveButton.disabled || !form.reportValidity()) return;
+    if (saveButton.disabled || !definitions.some(item => item.id === form.elements.provider.value) || !form.reportValidity()) return;
+    const providerOptions = {};
+    try {
+      for (const [name, { field, input }] of inputs) {
+        providerOptions[name] = field.type === "integer" ? Number(input.value) : field.type === "json" ? JSON.parse(input.value) :
+          field.type === "list" ? input.value.split(",").map(item => item.trim()).filter(Boolean) : input.value.trim();
+      }
+    } catch (error) {
+      status.textContent = "Enter a valid JSON object for year labels.";
+      return;
+    }
     saveButton.disabled = syncButton.disabled = true;
     const data = { provider: form.elements.provider.value, base_url: form.elements.base_url.value.trim(),
-      api_key: form.elements.api_key.value, enabled: form.elements.enabled.checked, mapping: "academic" };
+      api_key: form.elements.api_key.value, enabled: form.elements.enabled.checked, mapping: definitions.find(item => item.id === form.elements.provider.value).default_mapping || "academic", provider_options: providerOptions };
     form.elements.api_key.value = "";
     status.textContent = "Saving connection…";
-    try {
-      display((await call("/connection", "PUT", data)).connection);
-    } catch (error) {
-      status.textContent = errorMessage(error);
-    } finally {
+    try { display((await call("/connection", "PUT", data)).connection); }
+    catch (error) { status.textContent = errorMessage(error); }
+    finally {
       saveButton.disabled = sessionExpired;
       syncButton.disabled = sessionExpired || !saved || !enabled;
     }
@@ -230,11 +296,9 @@ async function setupLMSImport(collegeId) {
     if (syncButton.disabled) return;
     saveButton.disabled = syncButton.disabled = true;
     status.textContent = "Synchronizing college data…";
-    try {
-      display((await call("/sync", "POST", {})).connection);
-    } catch (error) {
-      status.textContent = errorMessage(error);
-    } finally {
+    try { display((await call("/sync", "POST", {})).connection); }
+    catch (error) { status.textContent = errorMessage(error); }
+    finally {
       saveButton.disabled = sessionExpired;
       syncButton.disabled = sessionExpired || !saved || !enabled;
     }
@@ -272,6 +336,9 @@ switch (document.body.dataset.page) {
   }
   case "account":
     loadAccount();
+    break;
+  case "choose-username":
+    setupUsername();
     break;
   case "preferences":
     setupPreferences();
@@ -370,5 +437,28 @@ async function setupCollegeRegistration() {
       window.location.assign("/account");
     } catch (error) { showStatus(errorMessage(error), true); }
     finally { button.disabled = false; }
+  });
+}
+
+
+function setupUsername() {
+  const form = document.getElementById("username-form");
+  const button = form.querySelector('button[type="submit"]');
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true;
+    showStatus("Saving username…");
+    try {
+      const { user } = await submitToAPI("/api/users", "/users/me/username", {
+        username: form.elements.username.value.trim(),
+      });
+      window.location.assign(user.preferences_completed === false ? "/preferences" :
+        user.roles.includes("college_admin") && !user.college_id ? "/register-college" : "/dashboard");
+    } catch (error) {
+      if (error.status === 401) window.location.replace("/login");
+      else showStatus(errorMessage(error), true);
+      button.disabled = false;
+    }
   });
 }

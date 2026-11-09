@@ -52,6 +52,8 @@ def create_app(config=None):
     def login():
         user = authenticated_user()
         if user:
+            if user.get("username_completed") is False:
+                return redirect("/choose-username")
             if user.get("preferences_completed") is False:
                 return redirect("/preferences")
             if "college_admin" in (user.get("roles") or []) and not user.get("college_id"):

@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 
 from pymongo import ASCENDING, MongoClient
@@ -83,6 +84,8 @@ class MongoUsersDAO(UsersDAO):
             email_verified=data.get("email_verified", True),
             preferences=preferences,
             preferences_completed=data.get("preferences_completed", True),
+            username_completed=data.get("username_completed",
+                                        re.fullmatch(r"user_[0-9a-f]{20}", data["username"]) is None),
         )
 
     def add_user(self, user):
@@ -214,5 +217,13 @@ class MongoUsersDAO(UsersDAO):
         result = self.collection.update_one(
             {"id": str(user_id), "roles": "college_admin", "college": {"$in": [None, college_id]}},
             {"$set": {"college": college_id}},
+        )
+        return result.matched_count == 1
+
+    def set_username(self, user_id, previous_username, username):
+        """Claim a username once; the unique index arbitrates concurrent claims."""
+        result = self.collection.update_one(
+            {"id": str(user_id), "username": previous_username, "username_completed": {"$ne": True}},
+            {"$set": {"username": username, "username_completed": True}},
         )
         return result.matched_count == 1

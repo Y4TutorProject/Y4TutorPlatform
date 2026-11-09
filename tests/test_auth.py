@@ -74,6 +74,7 @@ def test_signup_hashes_password_and_preserves_identity(app, client, signup):
     assert response.status_code == 201
     user = response.json["user"]
     assert user["roles"] == ["student"]
+    assert user["username_completed"] is True
     assert user["status"] == "pending_verification"
     assert "password" not in user and "passhash" not in user
     dao = app.extensions["users_dao"]
@@ -98,6 +99,7 @@ def test_signup_without_username_generates_one(registration_client, registration
     assert response.status_code == 201
     user = response.json["user"]
     assert user["username"].startswith("user_")
+    assert user["username_completed"] is False
     assert user["roles"] == ["student"]
     assert user["college_id"] == COLLEGE_ID
     assert login(client).status_code == 401
@@ -395,3 +397,51 @@ def test_signed_in_account_with_old_preferences_remains_accessible(app, client, 
     assert response.json["user"]["preferences"] == {
         "visual": 8, "auditory": 3, "reading_writing": 7, "kinesthetic": 6,
     }
+
+
+@pytest.fixture
+def deferred_username(app, client, signup):
+    user = signup().json['user']
+    app.extensions['users_dao'].collection.update_one({'id': user['id']}, {'$set': {'username_completed': False}})
+    assert login(client).json['user']['username_completed'] is False
+    return user
+
+
+def test_first_login_username_is_normalized_and_persisted(app, client, deferred_username):
+    response = post(client, '/users/me/username', {'username': ' My_Username ', 'user_id': 'another-user'})
+    assert response.status_code == 200
+    assert response.json['user']['username'] == 'my_username'
+    assert response.json['user']['username_completed'] is True
+    stored = app.extensions['users_dao'].get_user(deferred_username['id'])
+    assert stored.username == 'my_username' and stored.username_completed is True
+    assert post(client, '/users/me/username', {'username': 'my_username'}).status_code == 200
+    assert post(client, '/users/me/username', {'username': 'another_name'}).status_code == 409
+    assert client.get('/users/me').json['user']['username'] == 'my_username'
+
+
+@pytest.mark.parametrize('username', [None, '', 'ab', 'bad name', 'a' * 31, 12, {'$ne': None}])
+def test_first_login_rejects_invalid_username(app, client, deferred_username, username):
+    response = post(client, '/users/me/username', {'username': username})
+    assert response.status_code == 400
+    assert app.extensions['users_dao'].get_user(deferred_username['id']).username_completed is False
+
+
+def test_first_login_duplicate_username_keeps_onboarding_pending(app, client, signup, deferred_username):
+    signup(username='taken_name', email='other@example.com')
+    response = post(client, '/users/me/username', {'username': 'TAKEN_NAME'})
+    assert response.status_code == 409
+    assert app.extensions['users_dao'].get_user(deferred_username['id']).username_completed is False
+
+
+def test_username_selection_requires_session_and_csrf(app, client, signup):
+    assert post(client, '/users/me/username', {'username': 'new_name'}).status_code == 401
+    signup()
+    login(client)
+    assert client.post('/users/me/username', json={'username': 'new_name'}).status_code == 400
+
+
+@pytest.mark.parametrize('username,completed', [('user_' + 'a' * 20, False), ('chosen_name', True)])
+def test_legacy_usernames_only_prompt_for_generated_names(app, client, signup, username, completed):
+    user = signup(username=username).json['user']
+    app.extensions['users_dao'].collection.update_one({'id': user['id']}, {'$unset': {'username_completed': ''}})
+    assert login(client).json['user']['username_completed'] is completed

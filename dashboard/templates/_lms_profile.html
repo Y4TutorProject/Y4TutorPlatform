@@ -1,0 +1,30 @@
+    <section class="mt-4" aria-labelledby="lms-profile-title">
+      <h2 id="lms-profile-title" class="h5">Your LMS information</h2>
+      {% if lms %}
+      <p class="text-muted">{{ lms.college.name|lms_text }}</p>
+      <dl>
+        <dt>Name</dt><dd>{{ (lms.student.first_name ~ ' ' ~ lms.student.last_name)|trim or 'Not provided' }}</dd>
+        <dt>LMS username</dt><dd>{{ lms.student.username or 'Not provided' }}</dd>
+        <dt>LMS email</dt><dd class="text-break">{{ lms.student.email }}</dd>
+      </dl>
+      <p class="small text-muted">Last imported: {{ lms.imported_at }}</p>
+      {% if lms.enrolments_available %}
+      <h3 class="h6">Your programmes and modules</h3>
+        {% for course in lms.courses %}
+        <h3 class="h6 mt-3">{{ course.name|lms_text }}{% if course.code %} ({{ course.code|lms_text }}){% endif %}</h3>
+        {% set course_modules = lms.modules|selectattr('course_id', 'equalto', course.id)|list %}
+        {% if course_modules %}
+        <ul>
+          {% for module in course_modules %}
+          <li>{{ module.name|lms_text }} {% for role in module.roles|default(['student']) %}<span class="badge text-bg-primary">{{ role|capitalize }}</span>{% endfor %}{% if module.code %} ({{ module.code|lms_text }}){% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% else %}<p>You have no active LMS enrolments in the latest import.</p>{% endfor %}
+      {% else %}
+      <p>Your college needs to synchronize LMS again to load your enrolments.</p>
+      {% endif %}
+      {% else %}
+      <p role="status">{{ lms_error }}</p>
+      {% endif %}
+    </section>

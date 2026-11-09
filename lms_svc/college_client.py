@@ -1,6 +1,7 @@
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+from .lms.interfaces import AcademicCatalogClient
 
 
 class CollegeServiceUnavailable(Exception):
@@ -25,7 +26,7 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-class CollegeClient:
+class CollegeClient(AcademicCatalogClient):
     def __init__(self, base_url, sync_token=""):
         """Configure the college API client.
 

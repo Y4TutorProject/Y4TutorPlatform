@@ -31,7 +31,8 @@ At `/signup`, choose student or college administrator:
 The API accepts `email`, `password`, `account_type` and an optional `username`.
 `account_type` is `student` or `college_admin`; students also need `college_id`.
 Passwords are 9–128 characters. Usernames are 3–30 letters, numbers or underscores
-and are generated if omitted. Emails and usernames are trimmed and lowercased.
+and are saved in lowercase. The signup form offers an optional username; if omitted,
+a temporary name is generated and the user chooses their username on first sign-in. Emails and usernames are trimmed and lowercased.
 Client-supplied roles, status and verification flags are ignored.
 
 New accounts cannot sign in until their email is verified. Verification links
@@ -70,7 +71,7 @@ Errors: 400 invalid input or CSRF, 401 invalid login/session, 403 denied access,
 ## Signed-in pages
 
 The dashboard service owns `/dashboard`, `/admin-dashboard`, `/account`, and
-`/preferences`, including their templates and `/dashboard/static/` assets.
+`/preferences`, and `/choose-username`, including their templates and `/dashboard/static/` assets.
 `/dashboard` selects the college admin, student, or tutor view using roles returned
 by the users API. College admins see connection and synchronization settings;
 students see their Moodle information and four learning preference scores.
@@ -78,6 +79,20 @@ students see their Moodle information and four learning preference scores.
 The users frontend serves `/login`; authentication and preference APIs remain in
 the users service. Both frontends preserve the session cookie and browser user
 agent when authenticating through the gateway.
+
+## Username selection
+
+Signup with a username sets `username_completed` to true. Signup without one
+sets it to false, so login and dashboard visits lead to `/choose-username` before
+preference or college setup. Existing generated `user_<20 hexadecimal digits>`
+usernames also prompt when no completion flag is stored; existing chosen names
+continue normally.
+
+`POST /api/users/users/me/username` accepts `{"username": "chosen_name"}` and
+requires the signed-in users session and its CSRF token. It normalizes the name,
+uses the database's unique index to reject duplicates with HTTP 409, and atomically
+marks username selection complete. It only changes the current user's initial
+username; a repeated identical submission is safe.
 
 ## Learning preferences
 

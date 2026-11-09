@@ -1,6 +1,7 @@
 # College LMS integration
 
-The LMS service imports college data from Moodle and updates it every night.
+The LMS service imports provider-normalized college data and updates it every night.
+Moodle is the bundled adapter; its academic and role mapping is configurable.
 It has its own API (`lms_svc`), background worker (`lms_worker`) and MongoDB
 database (`lms_db`) for connection credentials, imported profiles and enrolment
 links. The college service owns academic `Course` and `Module` records in
@@ -13,7 +14,9 @@ links. The college service owns academic `Course` and `Module` records in
    - `core_user_get_users`
    - `core_course_get_categories`
    - `core_course_get_courses`
-   - `core_enrol_get_users_courses` (active student enrolments)
+   - `core_enrol_get_users_courses` (legacy active enrolments)
+   - `core_enrol_get_enrolled_users` (when importing actual course roles)
+   - `core_course_get_contents` (when mapping activities to modules)
 2. Generate a separate random `COLLEGE_SYNC_TOKEN` and put it in `.env`. Compose
    shares it only with the college API, LMS API and LMS worker. This authenticates
    internal catalogue reads/writes; browser sessions cannot call those endpoints.
@@ -32,8 +35,8 @@ links. The college service owns academic `Course` and `Module` records in
    ```
 
 4. Sign in as the college administrator. On the **Admin Dashboard**, select **Moodle**,
-   enter its public HTTPS URL and API key, and save the connection. Moodle fields
-   appear only when Moodle is selected.
+   enter its public HTTPS URL and API key, configure **Academic structure and role
+   mapping**, and save the connection. Settings are supplied by the installed adapter.
 
 Public HTTPS hosts need no manual approval. To restrict hosts, optionally set
 `LMS_ALLOWED_HOSTS` to a comma-separated list. Internal-only Moodle sites are
@@ -48,11 +51,11 @@ blocked. Set `LMS_DB_PASSWORD` for the database credentials.
 | Courses | Academic subjects (`modules`) |
 | Active user course enrolments | Links from Moodle user IDs to college module IDs |
 
-This assumes Moodle categories represent programmes. Colleges using a different
-structure need a custom mapping. Only data visible to the Moodle token is imported.
+These are the compatibility defaults. Admins can choose category depths, custom
+fields, activity modules and role shortnames; see [configurable mapping](lms-adapters.md). Only data visible to the Moodle token is imported.
 Imported users must still register and verify their email to sign in. Passwords,
-grades and files are not imported. Active enrolments are imported with
-`core_enrol_get_users_courses`; suspended Moodle users receive no enrolment links.
+grades and files are not imported. Active enrolments use `core_enrol_get_users_courses` in legacy mode or
+`core_enrol_get_enrolled_users` in role-aware mode; suspended users receive no links.
 The token must be able to view the relevant users and courses. The API returns
 only active enrolments visible to that token ([Moodle API documentation](https://phpdoc.moodledev.io/main/d6/d09/classcore__enrol__external.html)).
 Imports are limited to 5,000 users and 500,000 enrolment links.
@@ -164,3 +167,49 @@ Other students' directory records, enrolments, unrelated modules and connection
 credentials are never included. Empty enrolments show an explicit empty state;
 missing imports and dependency outages show a message while leaving the platform
 account usable.
+
+## Module roles and tutor applications
+
+The LMS database stores platform module roles in `module_memberships`, with a
+unique `(college_id, user_id, module_id)` relationship and a `roles` array.
+A verified student's first dashboard/profile or module-search request links their
+platform account to their Moodle enrolments and records `student` on each enrolled
+module. Subsequent reads and Moodle synchronizations refresh these memberships,
+removing Student membership for withdrawn or suspended enrolments while preserving
+independently approved Tutor membership. The Moodle source identity is retained
+for synchronization; module roles do not change the account's global roles or
+write back to Moodle.
+
+`GET /api/lms/students/me/modules?q=...` searches module names and codes in eligible
+previous years of the student's programme. Programme and year are explicit canonical module metadata supplied by the
+configured provider mapper. Moodle's default layout remains department → programme
+→ year; admins can configure other layouts or course fields.
+Programme membership is derived from current enrolments, and results exclude
+other programmes and colleges. No enrolments means no programme modules.
+
+`POST /api/lms/students/me/modules/<module_id>/tutor-application` accepts
+`{"grade": 85}` with a required numeric grade from 0 to 100 (decimals allowed). It requires the
+current student's session and users-service CSRF token, checks programme access,
+and creates one pending `tutor_applications` record per user/module. Applications
+are permitted only for modules in earlier years of the same programme, including
+previous-year modules that remain on their Moodle enrolment record. The highest enrolled year per
+programme determines the current year. The mapper must supply a numeric academic year; unknown years do not
+grant eligibility. Moodle year aliases and field sources are configurable. Year 1 students cannot apply. Search only returns eligible previous-year programme
+modules, each with `can_apply_to_tutor` set to true. Ineligible modules are omitted
+from both the API results and the dashboard list. Admin approval
+rechecks current enrolments and eligibility before granting the Tutor role. Repeated
+submissions return the same application; applying does not grant Tutor access.
+
+The college administrator reviews pending applications on their dashboard:
+
+- `GET /api/lms/college/<college_id>/tutor-applications` lists pending applications.
+- `POST /api/lms/college/<college_id>/tutor-applications/<id>/review` accepts
+  `{"decision": "approved"}` or `{"decision": "rejected"}`.
+
+Both admin endpoints verify college ownership and require a session and CSRF
+token. Approval records `tutor` on that module membership and retains an existing
+`student` role. A repeated identical decision is safe; a conflicting decision is
+rejected. Applications remain stored with the reviewer and review time.
+
+See [LMS adapters and configurable mapping](lms-adapters.md) for provider
+interfaces, installation, admin mapping options and role-aware Moodle import.

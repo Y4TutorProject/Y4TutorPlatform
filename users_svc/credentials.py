@@ -25,6 +25,16 @@ def normalize_email(email):
     return email
 
 
+def normalize_username(username):
+    """Normalize a unique public username using the signup naming rules."""
+    if not isinstance(username, str):
+        raise ValueError("Username is required.")
+    username = username.strip().casefold()
+    if not re.fullmatch(r"[a-z0-9_]{3,30}", username):
+        raise ValueError("Username must contain 3–30 letters, numbers, or underscores.")
+    return username
+
+
 def hash_password(password):
     """Return a salted scrypt hash of the supplied password.
 

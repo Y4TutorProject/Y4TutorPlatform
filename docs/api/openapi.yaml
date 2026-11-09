@@ -250,6 +250,70 @@ paths:
           $ref: '#/components/responses/Unavailable'
       security:
       - UsersSession: []
+  /api/lms/providers:
+    get:
+      tags: [LMS]
+      summary: List installed LMS adapters and their admin configuration fields
+      operationId: listLmsProviders
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          description: Installed adapter IDs, labels, default mapping and typed field descriptions. No credentials are returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string}
+                        label: {type: string}
+                        default_mapping: {type: string}
+                        fields:
+                          type: array
+                          items: {type: object}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/users/users/me/username:
+    post:
+      tags: [Users]
+      summary: Choose the signed-in user's initial username
+      operationId: chooseUsername
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 30
+                  pattern: '^[A-Za-z0-9_]{3,30}$'
+      responses:
+        '200':
+          description: Username saved and initial selection completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/users/users/me/college:
     post:
       tags:
@@ -661,6 +725,9 @@ components:
             - college_admin
         email_verified:
           type: boolean
+        username_completed:
+          type: boolean
+          description: Whether the user has chosen their username.
       required:
       - id
       - username
