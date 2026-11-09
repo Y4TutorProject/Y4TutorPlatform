@@ -5,6 +5,7 @@ from werkzeug.security import check_password_hash
 from .credentials import hash_password, normalize_email
 from .interfaces.users_interface import UsersInterface
 from .Objects.UserStatus import UserStatus
+from .Objects.LearningTeachingStyles import LearningTeachingStyles
 
 
 class UsersService(UsersInterface):
@@ -38,6 +39,30 @@ class UsersService(UsersInterface):
         user = self.dao.get_user_by_email(email)
         valid = check_password_hash(user.passhash if user else self._dummy_hash, password)
         return user if valid and user and user.is_active else None
+
+    def set_learning_preferences(self, user_uuid, preferences):
+        """Validate and persist supplied learning preference scores.
+
+        Supplying all four preferences also completes preference onboarding.
+
+        Args:
+            user_uuid (str | uuid.UUID): Identifier of the user to update.
+            preferences (dict): LearningTeachingStyles members or lowercase string keys
+                mapped to integer scores from 0 to 10. Other scores are preserved.
+
+        Returns:
+            User | None: Updated user, or None if no stored user matches.
+
+        Raises:
+            ValueError: A preference name or score is invalid.
+        """
+        user = self.dao.get_user(user_uuid)
+        if user is None:
+            return None
+        user.set_learning_preferences(preferences)
+        if {LearningTeachingStyles(key) for key in preferences} == set(LearningTeachingStyles):
+            user.preferences_completed = True
+        return user if self.dao.update_user(user) else None
 
     def change_status(self, user_uuid, new_status):
         """Save and return the user with the new status, or None if the ID is unknown.

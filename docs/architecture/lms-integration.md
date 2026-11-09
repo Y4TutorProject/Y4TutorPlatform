@@ -28,10 +28,10 @@ links. The college service owns academic `Course` and `Module` records in
 3. Start the services:
 
    ```sh
-   docker compose up -d --build lms_db lms_svc lms_worker gateway users_frontend
+   docker compose up -d --build lms_db lms_svc lms_worker gateway dashboard_svc
    ```
 
-4. Sign in as the college administrator. On **Your account**, select **Moodle**,
+4. Sign in as the college administrator. On the **Admin Dashboard**, select **Moodle**,
    enter its public HTTPS URL and API key, and save the connection. Moodle fields
    appear only when Moodle is selected.
 
@@ -131,7 +131,7 @@ runs. The LMS service accesses college data through authenticated internal HTTP
 endpoints, without direct college database credentials.
 
 For an existing deployment, rebuild `college_svc`, `lms_svc`, `lms_worker` and
-`users_frontend` with the shared service token, then run:
+`dashboard_svc` with the shared service token, then run:
 
 ```sh
 docker compose exec -T lms_svc python -m lms_svc.migrate_catalogs
@@ -151,10 +151,10 @@ docker compose --env-file Moodle/.env -f Moodle/moodle-docker-compose.yml cp Moo
 docker compose --env-file Moodle/.env -f Moodle/moodle-docker-compose.yml exec -T --user www-data webserver php /tmp/enable_enrolment_service.php --service=Tutor
 ```
 
-## Student account view
+## Student dashboard view
 
 After sign-in, students see their own Moodle name, username, email, programme
-hierarchy and enrolled modules on `/account`. The read-only `GET /students/me`
+hierarchy and enrolled modules on the student `/dashboard`. The read-only `GET /students/me`
 LMS endpoint validates the users session and derives the college and verified
 email from that account. It returns only the unique matching active Moodle
 profile and modules linked to its Moodle source ID, plus the owning programmes

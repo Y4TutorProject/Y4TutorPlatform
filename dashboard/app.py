@@ -1,53 +1,132 @@
-from flask import Flask, render_template, request, redirect
+from pathlib import Path
+import json
 import os
-import requests
+from http.cookies import SimpleCookie
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-def create_app():
-    """Create the student dashboard application."""
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("DASHBOARD_SHARED_SECRET", "default_secret_key")
-    USER_SERVICE_URL = os.environ.get("USERS_API_URL", "http://users_svc:5000")
+from flask import Flask, abort, redirect, render_template, request
+from jinja2 import ChoiceLoader, FileSystemLoader
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def create_app(config=None):
+    shared = Path(__file__).resolve().parent.parent / "frontend_shared"
+    app = Flask(__name__, static_folder=str(shared / "static"), static_url_path="/dashboard/static")
+    app.jinja_loader = ChoiceLoader([app.jinja_loader, FileSystemLoader(shared / "templates")])
+    # Use the same gateway hop as browser API calls to preserve Flask-Login's
+    # session binding to the user agent and immediate peer address.
+    app.config["USERS_API_URL"] = os.getenv("USERS_API_URL", "http://gateway/api/users")
+    app.config["LMS_API_URL"] = os.getenv("LMS_API_URL", "http://gateway/api/lms")
+    if config:
+        app.config.update(config)
+    app.extensions["users_opener"] = build_opener(NoRedirect())
+
+    def authenticated_user():
+        session_cookie = request.cookies.get("tutor_session")
+        if not session_cookie:
+            return None
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = session_cookie
+        upstream = Request(
+            app.config["USERS_API_URL"].rstrip("/") + "/users/me",
+            headers={"Cookie": cookie.output(header="").strip(),
+                     "User-Agent": request.headers.get("User-Agent", "")},
+        )
+        try:
+            with app.extensions["users_opener"].open(upstream, timeout=5) as response:
+                user = json.load(response).get("user")
+        except HTTPError as error:
+            error.close()
+            if error.code == 401:
+                return None
+            abort(503)
+        except (URLError, OSError, ValueError, AttributeError):
+            abort(503)
+        return user if isinstance(user, dict) else None
+
+    def student_moodle():
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = request.cookies["tutor_session"]
+        upstream = Request(
+            app.config["LMS_API_URL"].rstrip("/") + "/students/me",
+            headers={"Cookie": cookie.output(header="").strip(),
+                     "User-Agent": request.headers.get("User-Agent", "")},
+        )
+        try:
+            with app.extensions["users_opener"].open(upstream, timeout=5) as response:
+                return json.load(response), None
+        except HTTPError as error:
+            error.close()
+            if error.code == 401:
+                return None, "session_expired"
+            message = (
+                "Your Moodle profile is not available yet. Ask your college administrator to check "
+                "that your verified email matches Moodle and that the college has synchronized."
+                if error.code == 404 else
+                "Moodle information is temporarily unavailable. Please try again later."
+            )
+        except (URLError, OSError, ValueError):
+            message = "Moodle information is temporarily unavailable. Please try again later."
+        return None, message
 
     @app.get("/dashboard")
+    @app.get("/admin-dashboard")
     def dashboard():
-        user_response = requests.get(
-            f"{USER_SERVICE_URL.rstrip('/')}/users/me",
-            cookies={"tutor_session": request.cookies["tutor_session"]}
-            if "tutor_session" in request.cookies
-            else {},
-            timeout=5,
-        )
-        user = user_response.json().get("user") if user_response.ok else None
-        if not user:
+        user = authenticated_user()
+        if user is None:
             return redirect("/login")
-        username, email, college_id, status, roles, email_verified = (
-            user.get("username"),
-            user.get("email"),
-            user.get("college_id"),
-            user.get("status"),
-            user.get("roles"),
-            user.get("email_verified"),
-        )
-        if not email_verified:
-            return redirect("/verify-email")
-        if roles is None or not isinstance(roles, list):
+        roles = user.get("roles")
+        if not isinstance(roles, list):
             roles = []
-        # if the user is a studnt, redirect to the student dashboard
-        if "student" in [role.lower() for role in roles]:
-            return render_template(
-                "student_dashboard.html",
-                username=username
-            )
-        # if the user is a tutor, redirect to the tutor dashboard
-        # if "tutor" in [role.lower() for role in roles]:
-        #     return redirect("/tutor-dashboard")
-        # # if the user is an admin, redirect to the admin dashboard
-        # if "college-admin" in [role.lower() for role in roles]:
-        #     return redirect("/admin-dashboard")
+        is_admin = "college_admin" in roles
+        if request.path == "/admin-dashboard" and not is_admin:
+            abort(403)
+        if user.get("email_verified") is not True:
+            return redirect("/verify-email")
+        if user.get("preferences_completed") is False:
+            return redirect("/preferences")
+        if is_admin:
+            if not user.get("college_id"):
+                return redirect("/register-college")
+            return render_template("admin_dashboard.html", user=user)
+        if "student" in roles:
+            moodle, moodle_error = student_moodle()
+            if moodle_error == "session_expired":
+                return redirect("/login")
+            return render_template("student_dashboard.html", user=user,
+                                   moodle=moodle, moodle_error=moodle_error)
+        if "tutor" in roles:
+            return render_template("tutor_dashboard.html", user=user)
+        abort(403)
+
+    @app.get("/preferences")
+    def preferences():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        return render_template("preferences.html", user=user,
+                               onboarding=user.get("preferences_completed") is False)
+
+    @app.get("/account")
+    def account():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        return render_template("account.html", user=user)
+
+    @app.after_request
+    def no_cache(response):
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
     return app
 
 
 app = create_app()
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
