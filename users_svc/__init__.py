@@ -134,7 +134,5 @@ def create_app(config=None, dao=None):
     from .auth import auth
 
     app.register_blueprint(auth)
-    
-    from .lookup import lookup
-    app.register_blueprint(lookup)
+
     return app

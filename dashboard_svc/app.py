@@ -6,6 +6,7 @@ from http.cookies import SimpleCookie
 from urllib import response
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.parse import quote
 import hashlib
 import hmac
 
@@ -98,6 +99,72 @@ def create_app(config=None):
             return redirect("/dashboard")
         return render_template("login.html")
 
+    @app.get("/choose-username")
+    def choose_username():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        if user.get("username_completed") is not False:
+            if user.get("preferences_completed") is False:
+                return redirect("/preferences")
+            if "college_admin" in (user.get("roles") or []) and not user.get("college_id"):
+                return redirect("/register-college")
+            return redirect("/dashboard")
+        return render_template("choose_username.html", user=user)
+
+    def render_student_dashboard(user, can_manage_college):
+        session_cookie = request.cookies["tutor_session"]
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = session_cookie
+        upstream = Request(
+            app.config["LMS_API_URL"].rstrip("/") + "/students/me",
+            headers={
+                "Cookie": cookie.output(header="").strip(),
+                "User-Agent": request.headers.get("User-Agent", ""),
+            },
+        )
+        moodle = None
+        moodle_error = None
+        try:
+            with app.extensions["users_opener"].open(upstream, timeout=5) as response:
+                moodle = clean_deep(json.load(response))
+        except HTTPError as error:
+            error.close()
+            if error.code == 401:
+                return redirect("/login")
+            if error.code == 404:
+                moodle_error = (
+                    "Your Moodle profile is not available yet. Ask your college "
+                    "administrator to check that your verified email matches "
+                    "Moodle and that the college has synchronized."
+                )
+            else:
+                moodle_error = (
+                    "Moodle information is temporarily unavailable. "
+                    "Please try again later."
+                )
+        except (URLError, OSError, ValueError):
+            moodle_error = (
+                "Moodle information is temporarily unavailable. "
+                "Please try again later."
+            )
+
+        student = (moodle or {}).get("student") or {}
+        modules = [
+            {"module_id": module.get("id"), "module_name": module.get("display_name")}
+            for module in (moodle.get("modules") if moodle else [])
+        ]
+        return render_template(
+            "student_dashboard.html",
+            username=student.get("username"),
+            user=user,
+            can_manage_college=can_manage_college,
+            modules=modules,
+            moodle_error=moodle_error,
+        )
+
     @app.get("/dashboard")
     def dashboard():
         user = authenticated_user()
@@ -105,39 +172,77 @@ def create_app(config=None):
             return redirect("/login")
         if not isinstance(user, dict) or user.get("email_verified") is not True:
             abort(503)
-        session_cookie = request.cookies["tutor_session"]
-        cookie = SimpleCookie()
-        cookie["tutor_session"] = session_cookie
-        upstream = Request(
-            app.config["USERS_API_URL"].rstrip("/") + "/users/me",
-            headers={"Cookie": cookie.output(header="").strip(),
-                     "User-Agent": request.headers.get("User-Agent", "")},
-        )
-        can_manage_college = "college_admin" in (user.get("roles") or []) and bool(user.get("college_id"))
-        is_student = "student" in (user.get("roles") or [])
-        moodle = None
-        moodle_error = None
-        if is_student:
-            upstream = Request(app.config["LMS_API_URL"].rstrip("/") + "/students/me", headers=dict(upstream.header_items()))
-            try:
-                with app.extensions["users_opener"].open(upstream, timeout=5) as response:
-                    moodle = clean_deep(json.load(response))
-            except HTTPError as error:
-                error.close()
-                if error.code == 401:
-                    return redirect("/login")
-                moodle_error = ("Your Moodle profile is not available yet. Ask your college administrator to check that your verified email matches Moodle and that the college has synchronized."
-                                if error.code == 404 else "Moodle information is temporarily unavailable. Please try again later.")
-            except (URLError, OSError, ValueError):
-                moodle_error = "Moodle information is temporarily unavailable. Please try again later."
-        if is_student:
-            return render_template("student_dashboard.html", user=user, can_manage_college=can_manage_college,
-                                is_student=is_student, moodle=moodle, moodle_error=moodle_error)
+        if user.get("username_completed") is False:
+            return redirect("/choose-username")
+        roles = user.get("roles") or []
+        can_manage_college = "college_admin" in roles and bool(user.get("college_id"))
+        if "student" in roles:
+            return render_student_dashboard(user, can_manage_college)
         if can_manage_college:
-            return render_template("college_admin_dashboard.html", user=user, can_manage_college=can_manage_college,
-                                is_student=is_student)
-        else:
-            return redirect("/account")
+            return render_template(
+                "admin_dashboard.html",
+                user=user,
+                can_manage_college=can_manage_college,
+                is_student=False,
+            )
+        return redirect("/account")
+
+    @app.get("/get_tutors")
+    def get_tutors():
+        user = authenticated_user()
+        if user is None:
+            return redirect("/login")
+        if not isinstance(user, dict) or user.get("email_verified") is not True:
+            abort(503)
+        module_id = request.args.get("module_id")
+        if not module_id:
+            abort(400, "Missing module_id parameter")
+        cookie = SimpleCookie()
+        cookie["tutor_session"] = request.cookies["tutor_session"]
+        tutors_url = (
+            app.config["LMS_API_URL"].rstrip("/")
+            + f"/students/me/modules/{quote(module_id, safe='')}/tutors"
+        )
+        upstream = Request(
+            tutors_url,
+            headers={
+                "Cookie": cookie.output(header="").strip(),
+                "User-Agent": request.headers.get("User-Agent", ""),
+            },
+        )
+        try:
+            tutors = []
+            with app.extensions["users_opener"].open(upstream, timeout=5) as response:
+                result = json.load(response)
+            if not isinstance(result, dict) or not isinstance(result.get("tutor_ids"), list):
+                raise ValueError("Invalid LMS tutor list")
+            for tutor_id in result["tutor_ids"]:
+                if not isinstance(tutor_id, str) or not tutor_id:
+                    raise ValueError("Invalid LMS tutor ID")
+                tutors_url = (
+                    app.config["USERS_API_URL"].rstrip("/")
+                    + f"/users/{quote(tutor_id, safe='')}"
+                )
+                upstream = Request(
+                    tutors_url,
+                    headers={
+                        "Cookie": cookie.output(header="").strip(),
+                        "User-Agent": request.headers.get("User-Agent", ""),
+                    },
+                )
+                with app.extensions["users_opener"].open(upstream, timeout=5) as response:
+                    result = clean_deep(json.load(response))
+                if not isinstance(result, dict) or not isinstance(result.get("user"), dict):
+                    raise ValueError("Invalid tutor profile")
+                tutors.append(result["user"])
+        except HTTPError as error:
+            error.close()
+            app.logger.warning("Tutor lookup failed with upstream HTTP status %s", error.code)
+            abort(502, "Failed to fetch tutors")
+        except (URLError, OSError, ValueError) as error:
+            app.logger.warning("Tutor lookup failed: %s", error)
+            abort(502, "Failed to fetch tutors")
+        return {"tutors": tutors}
 
     @app.get("/getmessages")
     def messaging():

@@ -1,4 +1,0 @@
-{$MOODLE_DOCKER_WEB_HOST} {
-	tls internal
-	reverse_proxy webserver:80
-}

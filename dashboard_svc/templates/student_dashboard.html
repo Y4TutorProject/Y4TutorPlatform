@@ -1,58 +1,57 @@
-{% extends "base.html" %} {% block title %}Student Dashboard{% endblock %} {%
-block body_class %}bg-gray-50 text-gray-900{% endblock %} {% block page
-%}student-dashboard{% endblock %} {% block head %}
-{% endblock %} {% block main %}
-<div class="flex min-h-screen">
-  <!-- <aside
-    class="w-64 shrink-0 bg-white border-r border-gray-200 p-4 flex flex-col"
-  >
-    <h2 class="text-lg font-semibold mb-4">Navigation</h2>
+{% extends "base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block body_class %}student-dashboard-page{% endblock %}
+{% block page %}student-dashboard{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='student_dashboard.css') }}">
+<script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
+{% endblock %}
+{% block main %}
+<main class="student-dashboard">
+  <header class="dashboard-intro">
+    <h1>Find your tutor</h1>
+    <p>Welcome{% if username %}, {{ username }}{% endif %}. Select a module to find your tutor.</p>
+  </header>
 
-    <p class="text-sm font-medium text-gray-500 mb-2">Moodle modules</p>
-    <ul class="space-y-1 list-none">
-      {% if not moodle.modules %}
-      <li class="text-sm text-gray-500">No modules found</li>
-      {% endif %} {% for module in moodle.modules %}
-      <li>
-        <button
-          type="button"
-          data-module="module-{{ module.id }}"
-          class="module-btn w-full text-left px-3 py-2 rounded hover:bg-gray-100"
-        >
-          {{ module.name }}
-        </button>
-      </li>
-      {% endfor %}
-    </ul>
-  </aside> -->
-  <!-- Main content -->
-  <main class="flex-1 p-6">
-    <div class="w-50 mx-auto">
-      {% for tutor in moodle.tutors %}
-      <div class="card shadow rounded border-0 mb-4 tutor-card" id="{{ tutor.id }}">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start mb-3">
-            <div>
-              <p>{{ tutor.first_name }} {{ tutor.last_name }}</p>
-              <p class="card-title mb-1">{{ tutor.username }}</p>
-              <span class="badge bg-success-subtle text-success border">
-                98% Match
-              </span>
-            </div>
-            <div class="text-warning">★★★★★</div>
-          </div>
-          <div class="d-flex gap-2">
-            <a href="/api/dashboard/getmessages?user_id={{ tutor.id }}&username={{ tutor.username }}" class="btn btn-primary">
-              <i class="bi bi-chat-dots me-1"></i>
-              Message
-            </a>
-            <button class="btn btn-outline-secondary">View Profile</button>
-          </div>
+  <div class="dashboard-layout">
+    <aside class="module-sidebar" aria-labelledby="modules-title">
+      <div class="sidebar-heading">
+        <div>
+          <h2 id="modules-title">Your modules</h2>
+        </div>
+        <span class="module-count" aria-label="{{ modules|length }} modules">{{ modules|length }}</span>
+      </div>
+      <p class="sidebar-description">Select a module to see available tutors.</p>
+      {% if moodle_error %}
+      <p class="sidebar-message" role="status">{{ moodle_error }}</p>
+      {% elif not modules %}
+      <p class="sidebar-message">No modules found.</p>
+      {% else %}
+      <ul class="module-list">
+        {% for module in modules %}
+        <li>
+          <button type="button" class="module-btn" data-module="{{ module.module_id }}" aria-pressed="false">
+            <span class="module-icon" aria-hidden="true">{{ loop.index }}</span>
+            <span class="module-name">{{ module.module_name }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </aside>
+
+    <section class="tutor-section" aria-labelledby="tutors-title">
+      <div class="tutor-heading">
+        <div>
+          <h2 id="tutors-title">Your tutors</h2>
+          <p id="selected-module">Choose a module to get started.</p>
         </div>
       </div>
-      {% endfor %}
-    </div>
-  </main>
-</div>
-
+      <div id="tutor-results" aria-live="polite" aria-busy="false">
+        <div class="tutor-state">
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
 {% endblock %}

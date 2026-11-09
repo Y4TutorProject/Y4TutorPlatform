@@ -82,13 +82,3 @@ class UsersService(UsersInterface):
             user.status = UserStatus(new_status)
             self.dao.update_user(user)
         return user
-
-    def list_tutors(self, college_id):
-        """Return a list of active, verified tutors in the given college.
-
-        Args:
-            college_id (str | uuid.UUID): Identifier of the college to filter by.
-        Returns:
-            list[User]: A list of active, verified tutors in the given college.
-        """
-        return self.dao.list_tutors(college_id)

@@ -17,6 +17,10 @@ class ModuleParticipationStore(ABC):
         """Read role and application state for the current user."""
 
     @abstractmethod
+    def tutors_for_module(self, college_id, module_id):
+        """List platform user IDs with an approved tutor role for a module."""
+
+    @abstractmethod
     def apply(self, user, module, grade):
         """Submit a module-specific tutor application."""
 
@@ -84,6 +88,13 @@ class ModuleParticipation(ModuleParticipationStore):
                  'display_code': unescape(module.get('code', '')), 'roles': memberships.get(module['id'], []),
                  'application_status': applications.get(module['id'])}
                 for module in modules if query in unescape(f"{module['name']} {module.get('code', '')}").casefold()]
+
+    def tutors_for_module(self, college_id, module_id):
+        """List platform user IDs with an approved tutor role for a module."""
+        memberships = self.memberships.find(
+            {'college_id': college_id, 'module_id': module_id, 'roles': 'tutor'},
+            {'_id': 0, 'user_id': 1})
+        return sorted(membership['user_id'] for membership in memberships)
 
     def apply(self, user, module, grade):
         now = datetime.now(timezone.utc).isoformat()

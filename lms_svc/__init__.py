@@ -130,6 +130,14 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         details = participation.module_details(user, available, query)
         return jsonify(modules=[{**m, 'can_apply_to_tutor': True} for m in details])
 
+    @app.get("/students/me/modules/<module_id>/tutors")
+    def tutors_for_module(module_id):
+        user, _, catalog, _, modules = student_context()
+        available = programme_modules(catalog, modules)
+        if module_id not in {module['id'] for module in available}:
+            raise AuthenticationError("Module not found in your programme.", 404)
+        return jsonify(tutor_ids=participation.tutors_for_module(user['college_id'], module_id))
+
     @app.post("/students/me/modules/<module_id>/tutor-application")
     def apply_to_tutor(module_id):
         user, _, catalog, profile, modules = student_context(write=True)
@@ -248,56 +256,3 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         return response
 
     return app
-
-
-
-def find_my_tutors(college_id, catalog, modules, USERS_API_URL):
-    LEVELS_UP = 10   # how far up the category tree counts as "my department"; 10 = the top-level category
-    courses_by_id = {c["id"]: c for c in catalog["courses"] if "id" in c}
-    # start at my modules' courses and climb up
-    my_depts = set()
-    for course_id in {m["course_id"] for m in modules}:
-        for _ in range(LEVELS_UP):
-            parent = courses_by_id.get(course_id, {}).get("parent_id")
-            if parent not in courses_by_id:
-                break
-            course_id = parent
-        my_depts.add(course_id)
-    # 2. Everything underneath my department, at any depth (all years, all programmes)
-    dept_ids = set(my_depts)
-    changed = True
-    while changed:
-        changed = False
-        for c in catalog["courses"]:
-            if c.get("parent_id") in dept_ids and c.get("id") not in dept_ids:
-                dept_ids.add(c["id"])
-                changed = True
-
-    enrolled = {}
-    for e in catalog.get("enrolments", []):
-        enrolled.setdefault(e["user_source_id"], set()).add(e["target_id"])
-    module_course = {m["id"]: m["course_id"] for m in catalog["modules"]}
-    by_email = {r["email"].strip().casefold(): r for r in catalog["users"]
-                if r.get("email") and not r.get("suspended")}
-
-    request_headers = {"X-Internal-Token": os.getenv("INTERNAL_API_TOKEN", "")}
-    try:
-        response = requests.get(f"{USERS_API_URL}/tutors", params={"college_id": college_id},
-                                timeout=5, headers=request_headers)
-    except requests.RequestException:
-        return []
-    if response.status_code != 200:
-        return []
-    tutors = response.json().get("tutors", [])
-
-    result = []
-    for t in tutors:
-        profile = by_email.get((t.get("email") or "").strip().casefold())
-        if not profile:
-            continue
-        theirs = enrolled.get(profile["source_id"], set())
-        if {module_course.get(m) for m in theirs} & dept_ids:
-            result.append({"id": t["id"], "username": t["username"],
-                           "first_name": profile.get("first_name", ""),
-                           "last_name": profile.get("last_name", "")})
-    return result

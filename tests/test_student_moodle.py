@@ -132,6 +132,22 @@ def test_programme_search_includes_other_years_but_excludes_other_programmes(pro
     assert client.get('/students/me/modules?q=private').json['modules'] == []
 
 
+def test_module_tutor_route_returns_only_tutors_for_student_programme(student):
+    client, _, _, college_id, _, _, _ = student
+    module = client.get('/students/me').json['modules'][0]
+    database = client.application.extensions['lms_database']
+    database.module_memberships.insert_many([
+        {'college_id': college_id, 'user_id': 'matching-tutor', 'module_id': module['id'], 'roles': ['tutor']},
+        {'college_id': college_id, 'user_id': 'student-only', 'module_id': module['id'], 'roles': ['student']},
+        {'college_id': 'another-college', 'user_id': 'other-college-tutor', 'module_id': module['id'], 'roles': ['tutor']},
+    ])
+
+    response = client.get(f"/students/me/modules/{module['id']}/tutors")
+    assert response.status_code == 200
+    assert response.json == {'tutor_ids': ['matching-tutor']}
+    assert client.get('/students/me/modules/not-in-programme/tutors').status_code == 404
+
+
 def test_removing_enrolment_removes_student_membership(programme):
     client, _, importer, college_id, payload, catalog, _ = programme
     assert client.get('/students/me/modules').status_code == 200
@@ -179,6 +195,9 @@ def test_only_owning_admin_can_review_and_approval_grants_module_role(programme,
     assert student_post(client, path, {'decision': opposite}).status_code == 409
     membership = client.application.extensions['lms_database'].module_memberships.find_one({'module_id': module['id']})
     assert bool(membership and 'tutor' in membership['roles']) is (decision == 'approved')
+    participation = client.application.extensions['module_participation']
+    assert participation.tutors_for_module(college_id, module['id']) == (
+        [account['id']] if decision == 'approved' else [])
     assert users.extensions['users_dao'].get_user(account['id']).roles[0].value == 'college_admin'
     assert client.get(base, headers=headers).json['applications'] == []
 

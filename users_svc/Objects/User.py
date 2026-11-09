@@ -79,6 +79,19 @@ class User(UserMixin):
         """
         return self.status == UserStatus.ACTIVE and self.email_verified
 
+    def to_profile_dict(self):
+        """Return general details safe to show other users; excludes email and status.
+
+        Returns:
+            dict: JSON-compatible profile for display to other users.
+        """
+        return {
+            "id": str(self.id), "username": self.username,
+            "college_id": str(self.college) if self.college else None,
+            "roles": [role.value for role in self.roles],
+            "preferences": {pref.value: score for pref, score in self.preferences.items()},
+        }
+
     def to_public_dict(self):
         """Return JSON-compatible user details without the password hash.
 

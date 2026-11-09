@@ -211,6 +211,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${LMS_DB_PASSWORD:-password}
     volumes:
       - ./lms_svc/lms_db_data:/data/db
+    ports:
+      - "27020:27017"
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
       interval: 5s

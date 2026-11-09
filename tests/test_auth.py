@@ -445,3 +445,27 @@ def test_legacy_usernames_only_prompt_for_generated_names(app, client, signup, u
     user = signup(username=username).json['user']
     app.extensions['users_dao'].collection.update_one({'id': user['id']}, {'$unset': {'username_completed': ''}})
     assert login(client).json['user']['username_completed'] is completed
+
+
+def test_view_other_users_profile_in_same_college(app, client, signup):
+    signup()
+    tutor = signup(username="tutor_one", email="tutor@example.com").json["user"]
+    assert client.get(f"/users/{tutor['id']}").status_code == 401
+    assert login(client).status_code == 200
+    response = client.get(f"/users/{tutor['id']}")
+    assert response.status_code == 200
+    profile = response.json["user"]
+    assert profile["id"] == tutor["id"] and profile["username"] == "tutor_one"
+    assert set(profile) == {"id", "username", "college_id", "roles", "preferences"}
+
+
+def test_view_user_profile_hides_unknown_inactive_and_other_college(app, client, signup):
+    signup()
+    other_college = signup(username="elsewhere", email="elsewhere@example.com").json["user"]
+    inactive = signup(username="inactive", email="inactive@example.com").json["user"]
+    dao = app.extensions["users_dao"]
+    dao.collection.update_one({"id": other_college["id"]}, {"$set": {"college": "00000000-0000-4000-8000-000000000001"}})
+    dao.collection.update_one({"id": inactive["id"]}, {"$set": {"status": "suspended"}})
+    assert login(client).status_code == 200
+    for target in (other_college["id"], inactive["id"], "not-a-uuid", "00000000-0000-4000-8000-000000000002"):
+        assert client.get(f"/users/{target}").status_code == 404
