@@ -6,7 +6,6 @@ from .credentials import hash_password, normalize_email
 from .interfaces.users_interface import UsersInterface
 from .Objects.UserStatus import UserStatus
 
-
 class UsersService(UsersInterface):
     def __init__(self, dao):
         """Store the DAO and prepare a dummy password hash for unknown-account checks.
@@ -58,3 +57,13 @@ class UsersService(UsersInterface):
             user.status = UserStatus(new_status)
             self.dao.update_user(user)
         return user
+
+    def list_tutors(self, college_id):
+        """Return a list of active, verified tutors in the given college.
+
+        Args:
+            college_id (str | uuid.UUID): Identifier of the college to filter by.
+        Returns:
+            list[User]: A list of active, verified tutors in the given college.
+        """
+        return self.dao.list_tutors(college_id)
