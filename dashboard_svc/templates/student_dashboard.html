@@ -3,6 +3,7 @@
 {% block body_class %}student-dashboard-page{% endblock %}
 {% block page %}student-dashboard{% endblock %}
 {% block head %}
+{{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='student_dashboard.css') }}">
 <script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
 {% endblock %}

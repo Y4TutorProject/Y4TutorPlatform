@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block page %}dashboard{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='role_switcher.js') }}" defer></script>
+{% endblock %}
 {% block navigation %}
 <nav class="navbar bg-white border-bottom" aria-label="Main navigation">
   <div class="container">
@@ -7,11 +10,26 @@
     <div class="d-flex gap-3 align-items-center">
       <a href="/dashboard">Dashboard</a>
       <a href="/account">My account</a>
+      {% if current_role in ['tutor', 'student'] %}
       <a href="/messages">Messages</a>
+      {% endif %}
+      {% if user_roles %}
+      <form id="role-switcher" class="d-flex gap-2 align-items-center">
+        <label for="active-role">Role</label>
+        <select id="active-role" class="form-select form-select-sm">
+          <option value="" {% if not current_role %}selected{% endif %} disabled>Choose role</option>
+          {% for role in user_roles %}
+          <option value="{{ role }}" {% if role == current_role %}selected{% endif %}>{{ role | replace('_', ' ') | title }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-outline-secondary btn-sm" type="submit">Switch</button>
+      </form>
+      {% endif %}
       <button class="btn btn-outline-secondary" id="logout-button" type="button">Sign out</button>
     </div>
   </div>
 </nav>
+<p id="role-switch-error" class="container text-danger" role="alert" hidden></p>
 {% endblock %}
 {% block main %}
 <main class="container py-5">

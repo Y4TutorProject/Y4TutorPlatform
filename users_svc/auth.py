@@ -10,6 +10,12 @@ from .credentials import normalize_username
 
 auth = Blueprint("auth", __name__)
 
+def current_role():
+    roles = {role.value for role in current_user.roles}
+    selected = session.get("active_role")
+    if selected in roles:
+        return selected
+    return Role.STUDENT.value if Role.STUDENT.value in roles else None
 
 def json_body():
     """Parse the request body as a JSON object.
@@ -60,7 +66,7 @@ def login():
     session.clear()
     login_user(user, remember=False)
     session.permanent = True
-    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf())
+    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role())
 
 
 @auth.post("/auth/logout")
