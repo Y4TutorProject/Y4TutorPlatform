@@ -1,15 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tutor Dashboard</title>
-</head>
-<body>
-  <main>
-    <h1>Tutor Dashboard</h1>
-    <p>Welcome, {{ username }}!</p>
-  </main>
-</body>
-
-</html>
+{% extends "dashboard_base.html" %}
+{% block title %}Tutor Dashboard{% endblock %}
+{% block dashboard_content %}
+<h1>Tutor Dashboard</h1>
+<p>Welcome, {{ user.username }}!</p>
+<div class="card"><div class="card-body p-4">
+  {% include "_learning_preferences.html" %}
+</div></div>
+{% endblock %}

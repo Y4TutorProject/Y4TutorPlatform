@@ -169,10 +169,10 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
-      - USERS_API_URL=http://users_svc:5000
+      - USERS_API_URL=http://gateway/api/users
       - COLLEGE_API_URL=http://college_svc:5000
       - MESSAGING_API_URL=http://messaging_svc:5000
-      - LMS_API_URL=http://lms_svc:5000
+      - LMS_API_URL=http://gateway/api/lms
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     depends_on:
       users_svc:

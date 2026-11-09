@@ -16,12 +16,13 @@ foreach (['core_user_get_users', 'core_course_get_courses', 'core_course_get_cat
         throw new RuntimeException('The selected service is not the existing college import service.');
     }
 }
-$function = 'core_enrol_get_users_courses';
-$DB->get_record('external_functions', ['name' => $function], 'id', MUST_EXIST);
-if (!in_array($function, $functions, true)) {
-    $DB->insert_record('external_services_functions', (object)[
-        'externalserviceid' => $service->id,
-        'functionname' => $function,
-    ]);
+foreach (['core_enrol_get_users_courses', 'core_enrol_get_enrolled_users'] as $function) {
+    $DB->get_record('external_functions', ['name' => $function], 'id', MUST_EXIST);
+    if (!in_array($function, $functions, true)) {
+        $DB->insert_record('external_services_functions', (object)[
+            'externalserviceid' => $service->id,
+            'functionname' => $function,
+        ]);
+    }
 }
-echo "Read-only enrolment lookup enabled for the selected integration service.\n";
+echo "Read-only enrolment and course-role lookups enabled for the selected integration service.\n";

@@ -1,0 +1,27 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block dashboard_content %}
+<h1>Student Dashboard</h1>
+<p>Welcome, {{ user.username }}!</p>
+<div class="row g-4">
+  <div class="col-12 col-lg-4"><div class="card h-100"><div class="card-body p-4">
+    {% include "_learning_preferences.html" %}
+  </div></div></div>
+  <div class="col-12 col-lg-8"><div class="card h-100"><div class="card-body p-4">
+    {% include "_lms_profile.html" %}
+  </div></div></div>
+</div>
+<section class="card mt-4" aria-labelledby="programme-modules-title">
+  <div class="card-body p-4">
+    <h2 id="programme-modules-title" class="h5">Programme modules</h2>
+    <p>Search modules from previous years of your programme that you are eligible to tutor. Your college administrator reviews each application.</p>
+    <form id="module-search-form" class="d-flex gap-2 mb-3">
+      <label for="module-query" class="visually-hidden">Search module name or code</label>
+      <input id="module-query" name="q" type="search" maxlength="200" class="form-control" placeholder="Search module name or code">
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+    <p id="module-search-status" role="status" aria-live="polite"></p>
+    <ul id="programme-modules" class="list-group"></ul>
+  </div>
+</section>
+{% endblock %}

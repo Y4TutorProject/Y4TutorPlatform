@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block page %}dashboard{% endblock %}
+{% block navigation %}
+<nav class="navbar bg-white border-bottom" aria-label="Main navigation">
+  <div class="container">
+    <a class="navbar-brand" href="/dashboard">TutorPlatform</a>
+    <div class="d-flex gap-3 align-items-center">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/account">My account</a>
+      <button class="btn btn-outline-secondary" id="logout-button" type="button">Sign out</button>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block main %}
+<main class="container py-5">
+  <script src="{{ url_for('static', filename='modules.js') }}" defer></script>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+  {% block dashboard_content %}{% endblock %}
+</main>
+{% endblock %}

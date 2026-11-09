@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Your account{% endblock %}
+{% block page %}account{% endblock %}
+{% block content %}
+  <h1 id="form-title" class="h4 mb-4">Your account</h1>
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
+  <div id="account-details">
+    <p class="text-muted">You're signed in.</p>
+    <dl class="mb-4">
+      <div><dt>Username</dt><dd class="text-break" id="account-username">{{ user.username }}</dd></div>
+      <div><dt>Email address</dt><dd class="text-break" id="account-email">{{ user.email }}</dd></div>
+    </dl>
+    <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
+    <section class="mt-4" aria-labelledby="preferences-title">
+      <h2 id="preferences-title" class="h5">Learning preferences</h2>
+      <p>Rate how much you prefer each approach to learning, from 0 to 10.</p>
+      <a href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
+    </section>
+  </div>
+  <noscript><p class="alert alert-info mt-3">Enable JavaScript to sign out or manage your settings.</p></noscript>
+  <p class="mt-3 mb-0"><a href="/dashboard">Back to dashboard</a></p>
+{% endblock %}

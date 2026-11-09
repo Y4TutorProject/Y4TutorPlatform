@@ -2,7 +2,10 @@ from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import generate_csrf
 from .Objects.Role import Role
+from .Objects.LearningTeachingStyles import LearningTeachingStyles
 import uuid
+from pymongo.errors import DuplicateKeyError
+from .credentials import normalize_username
 
 
 auth = Blueprint("auth", __name__)
@@ -97,6 +100,47 @@ def verify():
             validation.
     """
     return jsonify(user=current_user.to_public_dict())
+
+
+@auth.post("/users/me/username")
+@login_required
+def choose_username():
+    """Claim a username for the signed-in account's initial setup."""
+    try:
+        username = normalize_username(json_body().get("username"))
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if current_user.username_completed:
+        if current_user.username == username:
+            return jsonify(user=current_user.to_public_dict())
+        return jsonify(error="Your username has already been chosen."), 409
+    dao = current_app.extensions["users_dao"]
+    try:
+        updated = dao.set_username(current_user.id, current_user.username, username)
+    except DuplicateKeyError:
+        return jsonify(error="This username is already taken. Choose another."), 409
+    if not updated:
+        return jsonify(error="Your username has already been chosen. Refresh the page."), 409
+    return jsonify(user=dao.get_user(current_user.id).to_public_dict())
+
+
+@auth.post("/users/me/preferences")
+@login_required
+def set_preferences():
+    """Save the signed-in user's four ratings and complete preference onboarding."""
+    try:
+        data = json_body()
+        preferences = data.get("preferences")
+        if not isinstance(preferences, dict) or set(preferences) != {pref.value for pref in LearningTeachingStyles}:
+            raise ValueError("Provide a score for each of the four learning preferences.")
+        user = current_app.extensions["users_service"].set_learning_preferences(
+            current_user.id, preferences,
+        )
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if user is None:
+        return jsonify(error="User no longer exists."), 404
+    return jsonify(user=user.to_public_dict())
 
 
 @auth.post("/users/me/college")

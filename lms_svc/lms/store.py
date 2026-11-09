@@ -1,35 +1,38 @@
 """Publish LMS profiles and enrolment links after college academic data is saved."""
 from datetime import datetime, timezone
-from hashlib import sha256
 
 from bson import BSON
 
 from .interfaces import LMSImportError, LMSImportStore
+from ..module_participation import ModuleParticipation
 
 
 class MongoLMSImportStore(LMSImportStore):
-    def __init__(self, database, colleges):
+    def __init__(self, database, colleges, participation=None):
         self.collection = database['lms_imports']
         self.colleges = colleges
+        self.participation = participation or ModuleParticipation(database)
 
     @staticmethod
     def _id(college_id, provider, source_url):
-        return sha256(f'{college_id}\n{provider}\n{source_url}'.encode()).hexdigest()
+        return LMSImportStore.source_identity(college_id, provider, source_url)
 
     def save(self, college_id, provider, source_url, catalog):
         # Check the complete incoming snapshot before any writes.
         if len(BSON.encode(catalog)) > 8 * 1024 * 1024:
             raise LMSImportError('Catalog exceeds the import size limit; the previous import is unchanged.')
         academic = self.colleges.save_catalog(college_id, provider, source_url, catalog['courses'], catalog['modules'])
-        kind = 'module' if catalog.get('mapping', 'academic') == 'academic' else 'course'
-        records = academic['modules'] if kind == 'module' else academic['courses']
-        targets = {record['source_id']: record['id'] for record in records}
-        links = [{'user_source_id': e['user_source_id'], 'target_type': kind, 'target_id': targets[e['course_source_id']]}
-                 for e in catalog.get('enrolments', [])]
+        targets = {kind: {record['source_id']: record['id'] for record in academic[plural]}
+                   for kind, plural in (('module', 'modules'), ('course', 'courses'))}
+        links = []
+        for entry in catalog.get('enrolments', []):
+            kind = entry.get('target_type', 'module' if catalog.get('mapping', 'academic') == 'academic' else 'course')
+            links.append({'user_source_id': entry['user_source_id'], 'target_type': kind,
+                          'target_id': targets[kind][entry['course_source_id']], 'roles': entry.get('roles', ['student'])})
         document = {'_id': self._id(college_id, provider, source_url), 'college_id': str(college_id),
                     'provider': provider, 'base_url': source_url,
                     'imported_at': catalog.get('imported_at') or datetime.now(timezone.utc).isoformat(),
-                    'mapping': catalog.get('mapping', 'academic'), 'users': catalog['users'],
+                    'mapping': catalog.get('mapping', 'academic'), 'canonical': catalog.get('canonical', False), 'users': catalog['users'],
                     'enrolments_available': catalog.get('enrolments_available', False), 'enrolments': links,
                     'catalog_ref': {'id': academic['id'], 'college_id': str(college_id),
                                     'course_ids': [c['id'] for c in academic['courses']],
@@ -37,6 +40,7 @@ class MongoLMSImportStore(LMSImportStore):
         if len(BSON.encode(document)) > 8 * 1024 * 1024:
             raise LMSImportError('Catalog exceeds the import size limit; the previous import is unchanged.')
         self.collection.replace_one({'_id': document['_id']}, document, upsert=True)
+        self.participation.refresh_import(document, academic)
         return self._public(document, academic)
 
     @staticmethod
