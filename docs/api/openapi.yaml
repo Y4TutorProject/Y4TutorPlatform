@@ -250,6 +250,34 @@ paths:
           $ref: '#/components/responses/Unavailable'
       security:
       - UsersSession: []
+  /api/lms/providers:
+    get:
+      tags: [LMS]
+      summary: List installed LMS adapters and their admin configuration fields
+      operationId: listLmsProviders
+      security:
+      - UsersSession: []
+      responses:
+        '200':
+          description: Installed adapter IDs, labels, default mapping and typed field descriptions. No credentials are returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string}
+                        label: {type: string}
+                        default_mapping: {type: string}
+                        fields:
+                          type: array
+                          items: {type: object}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/users/users/me/username:
     post:
       tags: [Users]

@@ -16,6 +16,7 @@ nav:
   - Architecture:
       - Colleges: architecture/colleges.md
       - LMS integration: architecture/lms-integration.md
+      - LMS adapters and mapping: architecture/lms-adapters.md
       - Matching system: architecture/matching-system.md
       - Messaging: architecture/messaging.md
       - Notifications: architecture/notifications.md

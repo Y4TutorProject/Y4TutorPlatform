@@ -34,7 +34,7 @@ def test_college_owns_records_and_lms_has_only_links(integration):
     course = dao.db.courses.find_one()
     module = dao.db.modules.find_one()
     assert module['course_id'] == course['id']
-    assert stored['enrolments'] == [{'user_source_id': '10', 'target_type': 'module', 'target_id': module['id']}]
+    assert stored['enrolments'] == [{'user_source_id': '10', 'target_type': 'module', 'target_id': module['id'], 'roles': ['student']}]
     assert 'secret-test-token' not in str(list(dao.db.modules.find()))
     assert client.get(path + '/catalog', query_string={'base_url': payload['base_url']}, headers=headers).status_code == 200
 

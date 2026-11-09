@@ -1,4 +1,5 @@
 import json
+from abc import ABC, abstractmethod
 
 from http.cookies import SimpleCookie
 from urllib.error import HTTPError, URLError
@@ -36,7 +37,17 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-class UsersAuthClient:
+class LMSAuthenticationClient(ABC):
+    @abstractmethod
+    def authenticate(self, session_cookie, user_agent):
+        """Return the verified current account for a read request."""
+
+    @abstractmethod
+    def verify(self, session_cookie, user_agent, csrf_token):
+        """Return the current account after session and CSRF verification."""
+
+
+class UsersAuthClient(LMSAuthenticationClient):
     def __init__(self, base_url):
         """Configure the users API URL and an HTTP client that rejects redirects.
 

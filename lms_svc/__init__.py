@@ -13,10 +13,11 @@ from .lms.interfaces import LMSImportError
 from .lms.service import LMSImportService
 from .lms.store import MongoLMSImportStore
 from .sync import LMSSyncService
-from .module_participation import programme_modules, tutor_modules
+from .module_participation import ModuleParticipation, programme_modules, tutor_modules, enrolment_roles
 
 
-def create_app(config=None, database=None, auth_client=None, college_client=None):
+def create_app(config=None, database=None, auth_client=None, college_client=None,
+               providers=None, import_store=None, connection_store=None, participation_store=None):
     app = Flask(__name__)
     app.config.from_mapping(
         MAX_CONTENT_LENGTH=16 * 1024,
@@ -41,14 +42,14 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         database = client[app.config["MONGO_DB_NAME"]]
     auth = auth_client or UsersAuthClient(app.config["USERS_API_URL"])
     colleges = college_client or CollegeClient(app.config["COLLEGE_API_URL"], app.config["COLLEGE_SYNC_TOKEN"])
-    importer = LMSImportService(MongoLMSImportStore(database, colleges), app.config["LMS_ALLOWED_HOSTS"].split(","),
-                                private_hosts=app.config["LMS_PRIVATE_HOSTS"].split(",") if app.config["DEV_MODE"] else (),
+    participation = participation_store or ModuleParticipation(database)
+    importer = LMSImportService(import_store or MongoLMSImportStore(database, colleges, participation), app.config["LMS_ALLOWED_HOSTS"].split(","),
+                                providers=providers, private_hosts=app.config["LMS_PRIVATE_HOSTS"].split(",") if app.config["DEV_MODE"] else (),
                                 ca_file=app.config["LMS_CA_FILE"] if app.config["DEV_MODE"] else None)
-    sync = LMSSyncService(importer, MongoConnectionStore(database), app.config["LMS_ENCRYPTION_KEY"], colleges,
+    sync = LMSSyncService(importer, connection_store or MongoConnectionStore(database), app.config["LMS_ENCRYPTION_KEY"], colleges,
                           app.config["LMS_SYNC_TIMEZONE"], app.config["LMS_SYNC_HOUR"])
     app.extensions.update(lms_service=importer, lms_sync=sync, lms_database=database)
 
-    participation = importer.store.participation
     app.extensions["module_participation"] = participation
 
     def student_context(write=False):
@@ -65,24 +66,24 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         connection = sync.connections.get(college_id)
         catalog = importer.store.get(college_id, connection["provider"], connection["base_url"]) if connection else None
         if not catalog:
-            raise AuthenticationError("Your college has not imported Moodle information yet.", 404)
+            raise AuthenticationError("Your college has not imported LMS information yet.", 404)
         # The verified account's college and email are the only lookup keys.
         # Never accept a requested email or return the college user directory.
         matches = [record for record in catalog["users"]
                    if record.get("email") and record["email"].strip().casefold() == user["email"].strip().casefold()]
         if len(matches) != 1 or matches[0].get("suspended"):
-            raise AuthenticationError("No active Moodle profile matches your verified email address.", 404)
-        links = [entry for entry in catalog.get("enrolments", []) if entry["user_source_id"] == matches[0]["source_id"]]
-        targets = {entry["target_id"] for entry in links}
-        if catalog.get("mapping", "academic") == "academic":
-            modules = [module for module in catalog["modules"] if module.get("id") in targets]
-        else:
-            course_ids = targets
-            modules = [module for module in catalog["modules"] if module["course_id"] in course_ids]
-        participation.synchronize_student(
-            user, {module['id'] for module in modules}, matches[0]['source_id'],
-            importer.store._id(college_id, connection['provider'], connection['base_url']))
+            raise AuthenticationError("No active LMS profile matches your verified email address.", 404)
+        roles = enrolment_roles(catalog, matches[0]['source_id'])
+        modules = [module for module in catalog['modules'] if 'student' in roles.get(module['id'], set())]
+        participation.synchronize_user(
+            user, roles, matches[0]['source_id'],
+            importer.store.source_identity(college_id, connection['provider'], connection['base_url']))
         return user, college, catalog, matches[0], modules
+
+    @app.get('/providers')
+    def providers():
+        auth.authenticate(request.cookies.get('tutor_session'), request.headers.get('User-Agent', ''))
+        return jsonify(providers=importer.provider_configurations())
 
     @app.get("/students/me")
     def student_information():
@@ -112,33 +113,29 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             course = pending.pop()
             courses.append(course)
             pending.extend(reversed(children.get(course["id"], [])))
-        return jsonify(student=profile, college={"name": college["name"]},
+        return jsonify(student=profile, college={"name": college["name"]}, provider=catalog["provider"],
                        imported_at=catalog["imported_at"], mapping=catalog.get("mapping", "academic"),
                        enrolments_available=catalog.get("enrolments_available", False),
                        courses=courses, modules=modules)
 
     @app.get("/students/me/modules")
     def search_programme_modules():
-        user, _, catalog, _, modules = student_context()
-        if catalog.get("mapping", "academic") != "academic":
-            raise AuthenticationError("Programme search requires academic Moodle mapping.", 409)
+        user, _, catalog, profile, modules = student_context()
         query = request.args.get("q", "")
         if len(query) > 200:
             raise ValueError("Search must be at most 200 characters.")
-        available = tutor_modules(catalog, modules)
+        available = tutor_modules(catalog, modules, profile)
         details = participation.module_details(user, available, query)
         return jsonify(modules=[{**m, 'can_apply_to_tutor': True} for m in details])
 
     @app.post("/students/me/modules/<module_id>/tutor-application")
     def apply_to_tutor(module_id):
-        user, _, catalog, _, modules = student_context(write=True)
-        if catalog.get("mapping", "academic") != "academic":
-            raise AuthenticationError("Tutor applications require academic Moodle mapping.", 409)
+        user, _, catalog, profile, modules = student_context(write=True)
         available = programme_modules(catalog, modules)
         module = next((m for m in available if m['id'] == module_id), None)
         if module is None:
             raise AuthenticationError("Module not found in your programme.", 404)
-        if module_id not in {m['id'] for m in tutor_modules(catalog, modules)}:
+        if module_id not in {m['id'] for m in tutor_modules(catalog, modules, profile)}:
             raise AuthenticationError("You can only apply to tutor modules from previous years of your programme.", 403)
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
@@ -174,11 +171,11 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         if decision not in ("approved", "rejected"):
             raise ValueError("Decision must be approved or rejected.")
         if decision == 'approved':
-            existing = participation.applications.find_one({'_id': application_id, 'college_id': str(uuid.UUID(college_id))})
+            existing = participation.get_application(str(uuid.UUID(college_id)), application_id)
             connection = sync.connections.get(college_id)
             catalog = importer.store.get(college_id, connection['provider'], connection['base_url']) if connection else None
-            if existing is None or catalog is None or catalog.get('mapping', 'academic') != 'academic' or not participation.application_eligible(
-                    existing, catalog, importer.store._id(college_id, connection['provider'], connection['base_url'])):
+            if existing is None or catalog is None or not participation.application_eligible(
+                    existing, catalog, importer.store.source_identity(college_id, connection['provider'], connection['base_url'])):
                 return jsonify(error="The student is no longer eligible to tutor this module in a previous year of their programme."), 409
         application = participation.review(str(uuid.UUID(college_id)), application_id, admin['id'], decision)
         if application is None:

@@ -7,7 +7,7 @@ import socket
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
-from .interfaces import LMSImportError
+from .interfaces import LMSImportError, LMSHTTPTransport
 
 
 def public_address(address):
@@ -82,7 +82,7 @@ class PublicHTTPSConnection(http.client.HTTPSConnection):
         raise OSError("Unable to connect to the public LMS endpoint.")
 
 
-class PublicHTTPSOpener:
+class PublicHTTPSOpener(LMSHTTPTransport):
     def __init__(self, private_hosts=(), ca_file=None):
         self.private_hosts = frozenset(private_hosts)
         self.ca_file = ca_file

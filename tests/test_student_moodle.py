@@ -19,7 +19,7 @@ def student(integration):
     catalog = {'mapping': 'academic', 'enrolments_available': True,
                'enrolments': [{'user_source_id': '10', 'course_source_id': '20'}], 'users': [profile, {'source_id': '11', 'email': 'private@college.test'}],
                'courses': [{'source_id': '30', 'name': 'Computing'}],
-               'modules': [{'source_id': '20', 'course_id': '30', 'name': 'Databases'}]}
+               'modules': [{'source_id': '20', 'course_id': '30', 'name': 'Databases', 'programme_id': '30', 'year': 1}]}
     importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
     return client, users, importer, college_id, payload, catalog, account
 
@@ -107,6 +107,9 @@ def programme(student, integration):
         {'source_id': '21', 'course_id': '31', 'name': 'Networks &amp; Security', 'code': 'NET2'},
         {'source_id': '22', 'course_id': '3', 'name': 'Private other module'},
     ]
+    catalog['modules'][0].update(programme_id='2', year=3)
+    catalog['modules'][1].update(programme_id='2', year=2)
+    catalog['modules'][2].update(programme_id='3', year=1)
     importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
     return student
 
@@ -228,6 +231,9 @@ def year_restricted(programme):
         {'source_id': '26', 'course_id': '34', 'name': 'Future year module'},
         {'source_id': '27', 'course_id': '35', 'name': 'Unknown year module'},
     ]
+    catalog['modules'][0]['year'] = 4
+    for module, year in zip(catalog['modules'][-5:], [1, 3, 4, 5, None]):
+        module.update(programme_id='2', year=year)
     importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
     return programme
 
@@ -277,3 +283,25 @@ def test_admin_cannot_approve_an_application_that_is_no_longer_eligible(year_res
     response = student_post(client, f"/college/{college_id}/tutor-applications/{application['id']}/review", {'decision': 'approved'})
     assert response.status_code == 409
     assert client.application.extensions['lms_database'].module_memberships.count_documents({'roles': 'tutor'}) == 0
+
+
+def test_lecturer_enrolment_is_not_automatically_student_membership(student):
+    client, _, importer, college_id, payload, catalog, _ = student
+    assert client.get('/students/me').json['modules']
+    catalog['enrolments'][0]['roles'] = ['lecturer']
+    importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
+    membership = client.application.extensions['lms_database'].module_memberships.find_one()
+    assert membership['roles'] == ['lecturer']
+    assert client.get('/students/me').json['modules'] == []
+    assert client.get('/students/me/modules').json['modules'] == []
+
+
+def test_explicit_profile_year_limits_search_and_direct_applications(year_restricted):
+    client, _, importer, college_id, payload, catalog, _ = year_restricted
+    catalog['users'][0]['current_year'] = 2
+    importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
+    modules = client.get('/students/me/modules').json['modules']
+    assert {m['source_id'] for m in modules} == {'23'}
+    full = importer.store.get(college_id, 'moodle', payload['base_url'])
+    same_year = next(m for m in full['modules'] if m['source_id'] == '21')
+    assert student_post(client, f"/students/me/modules/{same_year['id']}/tutor-application", {'grade': 90}).status_code == 403

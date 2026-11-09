@@ -31,11 +31,11 @@ class MongoAcademicDAO(AcademicDAO):
             return None
         courses = {}
         for data in self.courses.find({'college_id': college_id, 'catalog_id': catalog_id}):
-            course = Course(data['id'], college_id, data['name'], data['source_id'], data.get('parent_id'), data.get('code'))
+            course = Course(data['id'], college_id, data['name'], data['source_id'], data.get('parent_id'), data.get('code'), data.get('kind'))
             courses[data['id']] = course.to_dict()
         modules = {}
         for data in self.modules.find({'college_id': college_id, 'catalog_id': catalog_id}):
-            module = Module(data['id'], college_id, data['course_id'], data['name'], data['source_id'], data.get('code'), data.get('type'))
+            module = Module(data['id'], college_id, data['course_id'], data['name'], data['source_id'], data.get('code'), data.get('type'), data.get('programme_id'), data.get('year'))
             modules[data['id']] = module.to_dict()
         return {'id': catalog_id, 'college_id': college_id,
                 'courses': [courses[key] for key in manifest['course_ids']],

@@ -41,6 +41,8 @@ class AcademicService(AcademicInterface):
                          'parent_id': text(record['parent_id']) if record.get('parent_id') is not None else None}
                 if 'code' in record:
                     clean['code'] = text(record['code'], required=False)
+                if 'kind' in record:
+                    clean['kind'] = text(record['kind'])
                 normalized['courses'].append(clean)
             parents = {c['source_id']: c['parent_id'] for c in normalized['courses']}
             done = set()
@@ -60,6 +62,14 @@ class AcademicService(AcademicInterface):
                     raise ValueError('Invalid module relationship.')
                 seen.add(source_id)
                 clean = {'source_id': source_id, 'course_id': course_id, 'name': text(record['name'], 1000)}
+                if 'programme_id' in record:
+                    clean['programme_id'] = text(record['programme_id'])
+                    if clean['programme_id'] not in parents:
+                        raise ValueError('Invalid programme relationship.')
+                if 'year' in record and record['year'] is not None:
+                    if type(record['year']) is not int or not 1 <= record['year'] <= 20:
+                        raise ValueError('Invalid academic year.')
+                    clean['year'] = record['year']
                 for field in ('code', 'type'):
                     if field in record:
                         clean[field] = text(record[field], required=False)
@@ -70,10 +80,11 @@ class AcademicService(AcademicInterface):
         normalized['modules'].sort(key=lambda r: r['source_id'])
         catalog_id = hashlib.sha256(json.dumps([college_id, provider, source_url, normalized], sort_keys=True).encode()).hexdigest()
         course_objects = [Course(identity('course', c['source_id']), college_id, c['name'], c['source_id'],
-                                 identity('course', c['parent_id']) if c['parent_id'] else None, c.get('code'))
+                                 identity('course', c['parent_id']) if c['parent_id'] else None, c.get('code'), c.get('kind'))
                           for c in normalized['courses']]
         module_objects = [Module(identity('module', m['source_id']), college_id, identity('course', m['course_id']),
-                                 m['name'], m['source_id'], m.get('code'), m.get('type'))
+                                 m['name'], m['source_id'], m.get('code'), m.get('type'),
+                                 identity('course', m['programme_id']) if m.get('programme_id') else None, m.get('year'))
                           for m in normalized['modules']]
         return self.dao.save_catalog(college_id, catalog_id, course_objects, module_objects)
 

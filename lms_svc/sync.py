@@ -31,7 +31,7 @@ class LMSSyncService:
     def public(self, connection):
         if connection is None:
             return None
-        fields = ("provider", "base_url", "mapping", "enabled", "next_sync_at", "last_attempt_at", "last_success_at", "last_error", "counts")
+        fields = ("provider", "base_url", "mapping", "provider_options", "enabled", "next_sync_at", "last_attempt_at", "last_success_at", "last_error", "counts")
         result = {key: connection[key] for key in fields if key in connection}
         for key, value in result.items():
             if isinstance(value, datetime):
@@ -42,15 +42,13 @@ class LMSSyncService:
     def configure(self, college_id, admin_id, data):
         provider, url = self.importer.validate_source(data)
         mapping = data.get("mapping", "academic")
-        if mapping not in ("academic", "activities"):
-            raise ValueError("Mapping must be academic or activities.")
-        # Keep nightly jobs bounded; academic mapping is the college's supported model.
-        if mapping != "academic":
-            raise ValueError("Saved nightly connections use the academic mapping.")
+        self.importer.validate_mapping(provider, mapping)
         enabled = data.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ValueError("Enabled must be true or false.")
         old = self.connections.get(college_id)
+        supplied = data.get('provider_options', old.get('provider_options') if old and old['provider'] == provider else None)
+        provider_options = self.importer.validate_options(provider, supplied, mapping)
         key = data.get("api_key")
         if key is None or key == "":
             if old is None or old["provider"] != provider or old["base_url"] != url or old["admin_id"] != admin_id:
@@ -62,7 +60,7 @@ class LMSSyncService:
             encrypted = self.cipher.encrypt(key.strip().encode()).decode()
         now = self.clock()
         fields = {
-            "provider": provider, "base_url": url, "mapping": mapping, "enabled": enabled,
+            "provider": provider, "base_url": url, "mapping": mapping, "provider_options": provider_options, "enabled": enabled,
             "encrypted_api_key": encrypted, "admin_id": admin_id,
             "next_sync_at": now if enabled else self.next_night(now), "updated_at": now,
         }
@@ -84,7 +82,7 @@ class LMSSyncService:
                 raise LMSImportError("Saved credentials cannot be decrypted. Update the connection API key.") from None
             catalog = self.importer.import_catalog(college_id, {
                 "provider": connection["provider"], "base_url": connection["base_url"],
-                "mapping": connection["mapping"], "api_key": key,
+                "mapping": connection["mapping"], "provider_options": connection.get("provider_options"), "api_key": key,
             })
         except Exception:
             # No upstream exception text or credentials enter status/logs.
