@@ -31,6 +31,10 @@ def render_student_dashboard(user, can_manage_college):
     except (URLError, OSError, ValueError):
         moodle_error = MOODLE_UNAVAILABLE
 
+    if moodle and moodle.get('lecturer_modules'):
+        from .lecturer import render_lecturer_dashboard
+        return render_lecturer_dashboard(user, can_manage_college, moodle['lecturer_modules'])
+
     student = (moodle or {}).get("student") or {}
     modules = [
         {"module_id": module.get("id"), "module_name": module.get("display_name")}

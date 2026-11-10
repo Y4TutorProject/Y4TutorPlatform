@@ -134,7 +134,7 @@ function setupTutorReviews() {
   if (!panel) return;
   const status = document.getElementById("tutor-review-status");
   const list = document.getElementById("tutor-review-list");
-  const base = `/college/${encodeURIComponent(panel.dataset.collegeId)}/tutor-applications`;
+  const base = panel.dataset.reviewPath || `/college/${encodeURIComponent(panel.dataset.collegeId)}/tutor-applications`;
   async function load() {
     status.textContent = "Loading applications…";
     try {

@@ -1,0 +1,33 @@
+{% extends "dashboard_base.html" %}
+{% block title %}Lecturer Dashboard{% endblock %}
+{% block dashboard_content %}
+<header class="mb-4">
+  <p class="text-primary fw-semibold mb-2">LECTURER DASHBOARD</p>
+  <h1>Your teaching modules</h1>
+  <p class="text-secondary">Welcome, {{ user.username }}. Manage tutor applications for the modules you lecture.</p>
+</header>
+<section class="card mb-4" aria-labelledby="lecturer-modules-title">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 id="lecturer-modules-title" class="h4 mb-0">Your modules</h2>
+      <span class="badge text-bg-primary">{{ modules | length }} assigned</span>
+    </div>
+    {% if modules %}
+    <div class="row g-3" id="lecturer-modules">
+      {% for module in modules %}
+      <div class="col-md-6 col-xl-4">
+        <article class="border rounded p-3 h-100" data-module-id="{{ module.id }}">
+          <p class="text-secondary small mb-2">{{ module.code or 'Module' }}{% if module.year %} · Year {{ module.year }}{% endif %}</p>
+          <h3 class="h6">{{ module.name }}</h3>
+          <span class="badge text-bg-light">Lecturer</span>
+        </article>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-secondary mb-0">No teaching modules are currently assigned. Ask your college administrator to check your Moodle lecturer assignment and synchronize.</p>
+    {% endif %}
+  </div>
+</section>
+{% include '_tutor_reviews.html' %}
+{% endblock %}

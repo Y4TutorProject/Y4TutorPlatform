@@ -158,3 +158,44 @@ def test_get_tutors_rejects_malformed_profile(frontend, monkeypatch):
 
     monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
     assert client.get("/get_tutors?module_id=module-1").status_code == 502
+
+
+def test_lecturer_review_screen_uses_current_user_endpoint(frontend, monkeypatch):
+    app, client = frontend
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+        json_response({'user': {'id': 'lecturer', 'roles': ['student'], 'college_id': 'college', 'email_verified': True}}))
+    response = client.get('/tutor-applications')
+    assert response.status_code == 200
+    assert 'data-review-path="/lecturers/me/tutor-applications"' in response.text
+    assert 'id="tutor-review-list"' in response.text
+
+
+def test_lecturer_lands_on_teaching_dashboard_with_assigned_modules(frontend, monkeypatch):
+    app, client = frontend
+    modules = [{'id': 'teaching-1', 'name': 'Business & Finance', 'code': 'BUS1', 'year': 1}]
+    def upstream(request, timeout):
+        if request.full_url.endswith('/users/me'):
+            return json_response({'user': {'email_verified': True, 'username': 'modulelecturer254', 'roles': ['student']}})
+        return json_response({'student': {'username': 'modulelecturer254'}, 'modules': [], 'lecturer_modules': modules})
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)
+    response = client.get('/dashboard')
+    assert response.status_code == 200
+    assert 'Your teaching modules' in response.text
+    assert 'Business &amp; Finance' in response.text
+    assert 'data-module-id="teaching-1"' in response.text
+    assert 'id="tutor-review-list"' in response.text
+    assert 'Find your tutor' not in response.text
+    assert 'id="role-switcher"' not in response.text
+
+
+def test_lecturer_dashboard_reads_authorized_teaching_modules(frontend, monkeypatch):
+    app, client = frontend
+    def upstream(request, timeout):
+        if request.full_url.endswith('/users/me'):
+            return json_response({'user': {'email_verified': True, 'roles': ['student']}})
+        assert request.full_url == 'http://lms.test/lecturers/me/modules'
+        return json_response({'modules': [{'id': 'm1', 'name': 'Networks', 'year': 2}]})
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)
+    response = client.get('/lecturer-dashboard')
+    assert response.status_code == 200
+    assert 'Networks' in response.text

@@ -14,7 +14,7 @@ from .lms.interfaces import LMSImportError
 from .lms.service import LMSImportService
 from .lms.store import MongoLMSImportStore
 from .sync import LMSSyncService
-from .module_participation import ModuleParticipation, programme_modules, tutor_modules, enrolment_roles
+from .module_participation import ModuleParticipation, programme_modules, tutor_modules, enrolment_roles, module_lecturers
 from .manual_catalog import merge_manual, manual_application_eligible
 
 import logging
@@ -126,10 +126,13 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             course = pending.pop()
             courses.append(course)
             pending.extend(reversed(children.get(course["id"], [])))
+        lecturers = module_lecturers(catalog)
         return jsonify(student=profile, college={"name": college["name"]}, provider=catalog["provider"],
                        imported_at=catalog["imported_at"], mapping=catalog.get("mapping", "academic"),
                        enrolments_available=catalog.get("enrolments_available", False),
-                       courses=courses, modules=modules)
+                       courses=courses, modules=modules,
+                       lecturer_modules=[m for m in catalog['modules']
+                                         if lecturers.get(m['id']) == match['source_id']])
 
     @app.get("/students/me/modules")
     def search_programme_modules():
@@ -182,18 +185,60 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             raise AuthenticationError("College not found or not owned by this administrator.", 403)
         return user
 
-    @app.get("/college/<college_id>/tutor-applications")
-    def tutor_applications(college_id):
-        authorize(college_id)
-        return jsonify(applications=participation.pending(str(uuid.UUID(college_id))))
+    def review_context(write=False, college_id=None):
+        user = (auth.verify(request.cookies.get('tutor_session'), request.headers.get('User-Agent', ''),
+                            request.headers.get('X-CSRFToken')) if write else
+                auth.authenticate(request.cookies.get('tutor_session'), request.headers.get('User-Agent', '')))
+        if not user.get('college_id') or (college_id and college_id != user['college_id']):
+            raise AuthenticationError('College access required.', 403)
+        college_id = user['college_id']
+        college = colleges.get_college(college_id)
+        if college is None:
+            raise AuthenticationError('College access required.', 403)
+        connection = sync.connections.get(college_id)
+        catalog = importer.store.get(college_id, connection['provider'], connection['base_url']) if connection else None
+        manual = colleges.get_manual_academic(college_id)
+        allowed = set()
+        if catalog:
+            profiles = [p for p in catalog['users'] if p.get('email') and
+                        p['email'].strip().casefold() == user['email'].strip().casefold()]
+            if len(profiles) == 1 and not profiles[0].get('suspended'):
+                allowed = {module_id for module_id, source_id in module_lecturers(catalog).items()
+                           if source_id == profiles[0]['source_id']}
+        # Manually managed modules retain their college administrator workflow.
+        if 'college_admin' in user.get('roles', []) and college.get('admin_id') == user['id']:
+            allowed.update(m['id'] for m in manual['modules'])
+        if not allowed:
+            raise AuthenticationError('Only the assigned module lecturer can review tutor applications.', 403)
+        return user, allowed
 
-    @app.post("/college/<college_id>/tutor-applications/<application_id>/review")
-    def review_tutor_application(college_id, application_id):
-        admin = authorize(college_id)
+    @app.get('/lecturers/me/modules')
+    def lecturer_modules():
+        user, allowed = review_context()
+        connection = sync.connections.get(user['college_id'])
+        catalog = importer.store.get(user['college_id'], connection['provider'], connection['base_url']) if connection else None
+        return jsonify(modules=[m for m in (catalog or {}).get('modules', []) if m['id'] in allowed])
+
+    @app.get('/lecturers/me/tutor-applications')
+    @app.get('/college/<college_id>/tutor-applications')
+    def tutor_applications(college_id=None):
+        user, allowed = review_context(college_id=college_id)
+        return jsonify(applications=[a for a in participation.pending(user['college_id']) if a['module_id'] in allowed])
+
+    @app.post('/lecturers/me/tutor-applications/<application_id>/review')
+    @app.post('/college/<college_id>/tutor-applications/<application_id>/review')
+    def review_tutor_application(application_id, college_id=None):
+        reviewer, allowed = review_context(write=True, college_id=college_id)
+        college_id = reviewer['college_id']
+        existing = participation.get_application(college_id, application_id)
+        if existing is None or existing['module_id'] not in allowed:
+            raise AuthenticationError('Only the assigned module lecturer can review this application.', 403)
+        if existing['user_id'] == reviewer['id']:
+            raise AuthenticationError('You cannot review your own tutor application.', 403)
         data = request.get_json(silent=True)
-        decision = data.get("decision") if isinstance(data, dict) else None
-        if decision not in ("approved", "rejected"):
-            raise ValueError("Decision must be approved or rejected.")
+        decision = data.get('decision') if isinstance(data, dict) else None
+        if decision not in ('approved', 'rejected'):
+            raise ValueError('Decision must be approved or rejected.')
         if decision == 'approved':
             existing = participation.get_application(str(uuid.UUID(college_id)), application_id)
             manual = colleges.get_manual_academic(college_id)
@@ -205,9 +250,9 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
                     existing, catalog, importer.store.source_identity(college_id, connection['provider'], connection['base_url']))))
             if not eligible:
                 return jsonify(error="The student is no longer eligible to tutor this module in a previous year of their programme."), 409
-        application = participation.review(str(uuid.UUID(college_id)), application_id, admin['id'], decision)
+        application = participation.review(college_id, application_id, reviewer['id'], decision)
         if application is None:
-            return jsonify(error="Application not found or already reviewed."), 409
+            return jsonify(error='Application not found or already reviewed.'), 409
         return jsonify(application=application)
 
     @app.route("/college/<college_id>/lms/connection", methods=["GET", "PUT"])
