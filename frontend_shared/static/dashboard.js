@@ -97,11 +97,3 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
-
-
-const logoutButton = document.getElementById("logout-button");
-if (logoutButton) {
-    logoutButton.addEventListener("click", () => {
-        window.location.href = "/logout";
-    });
-}

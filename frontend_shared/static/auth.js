@@ -127,11 +127,11 @@ async function loadAccount() {
     if (error.status === 401) window.location.replace("/login");
     else showStatus(errorMessage(error), true);
   }
-  setupSignOut();
 }
 
 function setupSignOut() {
   const button = document.getElementById("logout-button");
+  if (!button) return;
   button.addEventListener("click", async () => {
     button.disabled = true;
     try {
@@ -305,6 +305,8 @@ async function setupLMSImport(collegeId) {
   });
 }
 
+setupSignOut();
+
 switch (document.body.dataset.page) {
   case "login":
     setupForm("login-form", "/api/users", "/auth/login", "/dashboard");
@@ -329,7 +331,6 @@ switch (document.body.dataset.page) {
     setupCollegeRegistration();
     break;
   case "dashboard": {
-    setupSignOut();
     const settings = document.getElementById("lms-settings");
     if (settings) setupLMSImport(settings.dataset.collegeId);
     break;
