@@ -10,6 +10,7 @@ from .auth import AuthenticationError, UsersAuthClient
 from .Objects.CollegeStatus import CollegeStatus
 from .academic_dao.MongoAcademicDAO import MongoAcademicDAO
 from .implementations.academic_svc import AcademicService
+from .manual_academics import register_manual_academics
 
 def create_app(config=None, dao=None, auth_client=None):
     """Create the college API with a DAO and users-session verification client.
@@ -56,6 +57,7 @@ def create_app(config=None, dao=None, auth_client=None):
     app.extensions["users_auth"] = auth_client or UsersAuthClient(app.config["USERS_API_URL"])
     academic = AcademicService(MongoAcademicDAO(dao.db))
     app.extensions["academic_service"] = academic
+    register_manual_academics(app, dao.db)
 
     @app.before_request
     def academic_request_limit():

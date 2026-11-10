@@ -15,6 +15,7 @@ from .lms.service import LMSImportService
 from .lms.store import MongoLMSImportStore
 from .sync import LMSSyncService
 from .module_participation import ModuleParticipation, programme_modules, tutor_modules, enrolment_roles
+from .manual_catalog import merge_manual, manual_application_eligible
 
 import logging
 
@@ -67,8 +68,10 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             raise AuthenticationError("Your college is not available.", 404)
         connection = sync.connections.get(college_id)
         catalog = importer.store.get(college_id, connection["provider"], connection["base_url"]) if connection else None
-        if not catalog:
+        manual = colleges.get_manual_academic(college_id)
+        if not catalog and not any(a['user_id'] == user['id'] for a in manual['assignments']):
             raise AuthenticationError("Your college has not imported LMS information yet.", 404)
+        catalog = merge_manual(catalog, manual, user)
         # The verified account's college and email are the only lookup keys.
         # Never accept a requested email or return the college user directory.
         matches = [record for record in catalog["users"]
@@ -78,9 +81,16 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         roles = enrolment_roles(catalog, matches[0]['source_id'])
         modules = [module for module in catalog['modules'] if 'student' in roles.get(module['id'], set())]
         participation.synchronize_user(
-            user, roles, matches[0]['source_id'],
-            importer.store.source_identity(college_id, connection['provider'], connection['base_url']))
+            user, {key: value - {'tutor'} for key, value in roles.items()}, matches[0]['source_id'],
+            importer.store.source_identity(college_id, connection['provider'], connection['base_url'])
+            if connection else 'manual:' + college_id)
         return user, college, catalog, matches[0], modules
+
+    def module_details(user, catalog, modules, query=''):
+        details = participation.module_details(user, modules, query)
+        for module in details:
+            module['roles'] = sorted(set(module['roles']) | catalog.get('_manual_roles', {}).get(module['id'], set()))
+        return details
 
     @app.get('/providers')
     def providers():
@@ -92,7 +102,7 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         user, college, catalog, match, modules = student_context()
         profile = {field: match.get(field, "") for field in ("first_name", "last_name", "username", "email")}
         course_ids = {module['course_id'] for module in modules}
-        modules = participation.module_details(user, modules)
+        modules = module_details(user, catalog, modules)
         # Include the programme/category ancestors so "Y1" has its proper context.
         courses_by_id = {course["id"]: course for course in catalog["courses"] if "id" in course}
         pending = list(course_ids)
@@ -127,7 +137,7 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         if len(query) > 200:
             raise ValueError("Search must be at most 200 characters.")
         available = tutor_modules(catalog, modules, profile)
-        details = participation.module_details(user, available, query)
+        details = module_details(user, catalog, available, query)
         return jsonify(modules=[{**m, 'can_apply_to_tutor': True} for m in details])
 
     @app.get("/students/me/modules/<module_id>/tutors")
@@ -136,7 +146,10 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
         available = programme_modules(catalog, modules)
         if module_id not in {module['id'] for module in available}:
             raise AuthenticationError("Module not found in your programme.", 404)
-        return jsonify(tutor_ids=participation.tutors_for_module(user['college_id'], module_id))
+        manual = colleges.get_manual_academic(user['college_id'])
+        manual_tutors = {a['user_id'] for a in manual['assignments']
+                         if a['target_type'] == 'module' and a['target_id'] == module_id and a['role'] == 'tutor'}
+        return jsonify(tutor_ids=sorted(set(participation.tutors_for_module(user['college_id'], module_id)) | manual_tutors))
 
     @app.post("/students/me/modules/<module_id>/tutor-application")
     def apply_to_tutor(module_id):
@@ -182,10 +195,14 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             raise ValueError("Decision must be approved or rejected.")
         if decision == 'approved':
             existing = participation.get_application(str(uuid.UUID(college_id)), application_id)
+            manual = colleges.get_manual_academic(college_id)
             connection = sync.connections.get(college_id)
             catalog = importer.store.get(college_id, connection['provider'], connection['base_url']) if connection else None
-            if existing is None or catalog is None or not participation.application_eligible(
-                    existing, catalog, importer.store.source_identity(college_id, connection['provider'], connection['base_url'])):
+            eligible = existing is not None and (
+                manual_application_eligible(existing, manual) or
+                (catalog is not None and participation.application_eligible(
+                    existing, catalog, importer.store.source_identity(college_id, connection['provider'], connection['base_url']))))
+            if not eligible:
                 return jsonify(error="The student is no longer eligible to tutor this module in a previous year of their programme."), 409
         application = participation.review(str(uuid.UUID(college_id)), application_id, admin['id'], decision)
         if application is None:

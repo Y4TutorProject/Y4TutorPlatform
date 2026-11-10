@@ -24,6 +24,11 @@ def integration(services, monkeypatch):
     college = College(uuid.uuid4(), "Import College", admin_id=user["id"])
     dao.add_college(college)
     class Colleges:
+        def get_manual_academic(self, college_id):
+            response = college_client.get(f'/internal/college/{college_id}/manual-academic',
+                headers={'X-College-Sync-Token': 'test-service-token'})
+            assert response.status_code == 200
+            return response.json['catalog']
         def get_college(self, college_id):
             college = dao.get_college(college_id)
             return college.to_dict() if college and college.status.value == "active" else None

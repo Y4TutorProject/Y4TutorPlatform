@@ -1,0 +1,58 @@
+<section id="academic-management" class="card mb-4" data-college-id="{{ user.college_id }}" aria-labelledby="academic-title">
+  <div class="card-body p-4">
+    <h2 id="academic-title" class="h4">Courses, modules and users</h2>
+    <p>Create courses, add modules for each year, and assign registered users from your college. Manual records are kept when your LMS synchronizes.</p>
+    <p id="academic-status" role="status" aria-live="polite">Loading academic records…</p>
+    <button id="refresh-academics" type="button" class="btn btn-outline-secondary mb-3">Refresh records</button>
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <h3 class="h5">Create a course</h3>
+        <form id="create-course-form">
+          <label for="manual-course-name" class="form-label">Course name</label>
+          <input id="manual-course-name" name="name" class="form-control mb-2" maxlength="200" required>
+          <label for="manual-course-code" class="form-label">Course code (optional)</label>
+          <input id="manual-course-code" name="code" class="form-control mb-3" maxlength="80">
+          <button type="submit" class="btn btn-primary" disabled>Create course</button>
+          <p id="course-save-status" class="mt-2" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div class="col-lg-4">
+        <h3 class="h5">Create a module</h3>
+        <form id="create-module-form">
+          <label for="manual-module-course" class="form-label">Course</label>
+          <select id="manual-module-course" name="course_id" class="form-select mb-2" required></select>
+          <label for="manual-module-year" class="form-label">Year</label>
+          <input id="manual-module-year" name="year" type="number" min="1" max="20" step="1" value="1" class="form-control mb-2" required>
+          <label for="manual-module-name" class="form-label">Module name</label>
+          <input id="manual-module-name" name="name" class="form-control mb-2" maxlength="200" required>
+          <label for="manual-module-code" class="form-label">Module code (optional)</label>
+          <input id="manual-module-code" name="code" class="form-control mb-3" maxlength="80">
+          <button type="submit" class="btn btn-primary" disabled>Create module</button>
+          <p id="module-save-status" class="mt-2" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div class="col-lg-4">
+        <h3 class="h5">Assign a user</h3>
+        <form id="assign-academic-user-form">
+          <label for="academic-user" class="form-label">User</label>
+          <select id="academic-user" name="user_id" class="form-select mb-2" required></select>
+          <label for="academic-target" class="form-label">Course or module</label>
+          <select id="academic-target" name="target" class="form-select mb-2" required></select>
+          <label for="academic-role" class="form-label">Assign as</label>
+          <select id="academic-role" name="role" class="form-select mb-2" required>
+            <option value="student">Student</option><option value="tutor">Tutor</option>
+          </select>
+          <label for="academic-user-year" class="form-label">Current year (course assignments)</label>
+          <input id="academic-user-year" name="year" type="number" min="1" max="20" step="1" value="1" class="form-control mb-2" required>
+          <p class="form-text">A course assignment enrols the student in all modules in their selected year, including modules added later. Tutors are assigned to individual modules.</p>
+          <button type="submit" class="btn btn-primary" disabled>Save assignment</button>
+          <p id="assignment-save-status" class="mt-2" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+    <h3 class="h5 mt-4">Your courses and modules</h3>
+    <ul id="academic-catalog-list" class="list-group"></ul>
+    <h3 class="h5 mt-4">User assignments</h3>
+    <ul id="academic-assignment-list" class="list-group"></ul>
+  </div>
+</section>

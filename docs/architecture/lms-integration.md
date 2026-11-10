@@ -7,6 +7,14 @@ database (`lms_db`) for connection credentials, imported profiles and enrolment
 links. The college service owns academic `Course` and `Module` records in
 `college_db`. An LMS failure leaves account sign-in available.
 
+The college administration page (`/admin-dashboard`) includes an **Imported LMS
+data** viewer for the latest successful import. Administrators can browse and
+search courses/categories, modules, users, and enrolments with roles, with 25
+records per page. The view shows import counts, source, and timestamp, and refreshes
+after a successful manual sync. Its existing catalogue API requires the owning
+college administrator's verified session and CSRF token. Imported user records do
+not grant platform sign-in; users still register and verify their accounts.
+
 ## Setup
 
 1. Enable Moodle web services and REST. Create a dedicated integration user and
