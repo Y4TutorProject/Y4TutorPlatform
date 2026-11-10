@@ -28,9 +28,11 @@ def create_app(config=None):
     @app.context_processor
     def inject_user_roles():
         user = getattr(g, "user", None)
+        userid = user.get("id") if user else None
         return {
             "user_roles": user.get("roles") if user else [],
             "current_role": user.get("active_role") if user else None,
+            "userid": userid,
         }
 
     register_routes(app)

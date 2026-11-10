@@ -241,6 +241,21 @@ def test_preference_update_only_changes_current_account(app, client, signup):
     assert all(score == 0 for score in unchanged.preferences.values())
 
 
+def test_teaching_preferences_are_saved_separately_from_learning(app, client, signup):
+    user = signup().json["user"]
+    assert user["teaching_preferences_completed"] is False
+    login(client)
+    scores = {"visual": 10, "auditory": 0, "reading_writing": 4, "kinesthetic": 8}
+    response = post(client, "/users/me/teaching_preferences", {"preferences": scores})
+    assert response.status_code == 200
+    assert response.json["user"]["teaching_preferences"] == scores
+    assert response.json["user"]["teaching_preferences_completed"] is True
+    assert response.json["user"]["preferences_completed"] is False
+    stored = app.extensions["users_dao"].get_user(user["id"])
+    assert all(score == 0 for score in stored.preferences.values())
+    assert post(client, "/users/me/teaching_preferences", {"preferences": {"visual": 5}}).status_code == 400
+
+
 def test_session_expiry(app, client, signup):
     signup()
     login(client)

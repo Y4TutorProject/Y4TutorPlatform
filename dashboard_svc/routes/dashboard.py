@@ -4,7 +4,7 @@ from users_client import login_required
 from .account import can_manage_college
 from .admin import render_admin_dashboard
 from .student import render_student_dashboard
-from .tutor import render_tutor_dashboard
+from .tutor import needs_teaching_preferences, render_tutor_dashboard
 
 bp = Blueprint("dashboard", __name__)
 
@@ -23,6 +23,8 @@ def dashboard():
     user = g.user
     if user.get("username_completed") is False:
         return redirect("/choose-username")
+    if needs_teaching_preferences(user):
+        return redirect("/preferences?type=teaching")
     roles = user.get("roles") or []
     manages_college = can_manage_college(user)
     if "tutor" in roles:
