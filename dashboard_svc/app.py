@@ -15,8 +15,7 @@ def create_app(config=None):
     ))
     app = Flask(__name__, static_folder=str(shared / "static"), static_url_path="/dashboard/static")
     app.jinja_loader = ChoiceLoader([app.jinja_loader, FileSystemLoader(shared / "templates")])
-    # Use the same gateway hop as browser API calls to preserve Flask-Login's
-    # session binding to the user agent and immediate peer address.
+
     app.config["USERS_API_URL"] = os.getenv("USERS_API_URL", "http://gateway/api/users")
     app.config["LMS_API_URL"] = os.getenv("LMS_API_URL", "http://gateway/api/lms")
     app.config["MESSAGING_API_URL"] = os.getenv("MESSAGING_API_URL", "http://gateway/api/messaging")
@@ -24,6 +23,16 @@ def create_app(config=None):
     if config:
         app.config.update(config)
     app.extensions["users_opener"] = create_opener()
+    app.config["CURRENT_ROLE"] = None
+
+    @app.context_processor
+    def inject_user_roles():
+        from flask import g
+        user = getattr(g, "user", None)
+        return {
+            "user_roles": user.get("roles") if user else [],
+            "current_role": user.get("active_role") if user else None,
+        }
 
     register_routes(app)
 
