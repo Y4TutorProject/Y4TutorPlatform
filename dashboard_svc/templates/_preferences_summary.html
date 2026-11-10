@@ -1,5 +1,5 @@
-    <section aria-labelledby="learning-preferences-title">
-      <h2 id="learning-preferences-title">Your learning preferences</h2>
+    <section aria-labelledby="{{ kind }}-preferences-title">
+      <h2 id="{{ kind }}-preferences-title">Your {{ kind }} preferences</h2>
       <p>Your ratings from 0 (no preference) to 10 (strong preference).</p>
       <dl>
         {% for key, label in [
@@ -9,9 +9,8 @@
           ('kinesthetic', 'Kinesthetic')
         ] %}
         <dt>{{ label }}</dt>
-        <dd>{{ (user.preferences or {}).get(key, 0) }} / 10</dd>
+        <dd>{{ (scores or {}).get(key, 0) }} / 10</dd>
         {% endfor %}
       </dl>
-      <a href="/preferences">Edit your learning preferences</a>
+      <a href="/preferences?type={{ kind }}">Edit your {{ kind }} preferences</a>
     </section>
- 

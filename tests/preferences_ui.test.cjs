@@ -4,13 +4,13 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function screen({ onboarding = true, admin = false, failure = null } = {}) {
+function screen({ onboarding = true, admin = false, failure = null, kind = null } = {}) {
   const redirects = [];
   const calls = [];
   const status = { focus() {} };
   const button = { disabled: false };
   const form = {
-    dataset: { onboarding: String(onboarding) }, events: {},
+    dataset: { onboarding: String(onboarding), ...(kind && { kind }) }, events: {},
     elements: Object.fromEntries(["visual", "auditory", "reading_writing", "kinesthetic"]
       .map((key, index) => [key, { value: String(index ? 10 : 0) }])),
     querySelector() { return button; }, reportValidity() { return true; },
@@ -55,6 +55,21 @@ test("Later edits stay on the page and confirm the save", async () => {
   await ui.submit();
   assert.deepEqual(ui.redirects, []);
   assert.equal(ui.status.textContent, "Your learning preferences have been saved.");
+});
+
+test("Teaching preferences post to the teaching endpoint and confirm the save", async () => {
+  const ui = screen({ onboarding: false, kind: "teaching" });
+  await ui.submit();
+  assert.equal(ui.calls[1].url, "/api/users/users/me/teaching_preferences");
+  assert.deepEqual(JSON.parse(ui.calls[1].options.body).preferences,
+    { visual: 0, auditory: 10, reading_writing: 10, kinesthetic: 10 });
+  assert.equal(ui.status.textContent, "Your teaching preferences have been saved.");
+});
+
+test("Unknown preference kinds fall back to learning preferences", async () => {
+  const ui = screen({ onboarding: false, kind: "other" });
+  await ui.submit();
+  assert.equal(ui.calls[1].url, "/api/users/users/me/preferences");
 });
 
 test("Failed save keeps setup open and allows retry", async () => {

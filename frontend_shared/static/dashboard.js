@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", function () {
             reading_writing: "Reading & writing",
             kinesthetic: "Kinesthetic"
         };
-        Object.entries(tutor.preferences || {}).forEach(([key, score]) => {
+        Object.entries(tutor.teaching_preferences || {}).forEach(([key, score]) => {
             const label = labels[key] || key.replace(/_/g, " ");
             chips.append(element("li", "preference-chip", `${label} \u00b7 ${score}/10`));
         });
