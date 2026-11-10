@@ -42,6 +42,13 @@ def test_student_dashboard_renders_sidebar_and_tutor_area(frontend, monkeypatch)
     assert "Web &amp; SQL" in html
     assert 'id="tutor-results"' in html
     assert "student_dashboard.css" in html
+    assert '/dashboard/static/modules.js' in html
+    assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/modules.js')
+    assert 'id="open-tutor-applications"' in html
+    assert 'aria-controls="tutor-application-panel" aria-expanded="false" hidden' in html
+    assert 'id="tutor-application-panel"' in html
+    assert 'id="module-search-form"' in html
+    assert 'id="programme-modules"' in html
 
 
 @pytest.mark.parametrize("tutor_ids", [[], ["tutor-1", "tutor-2"]])
