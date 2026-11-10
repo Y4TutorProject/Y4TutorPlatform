@@ -10,9 +10,7 @@
     <div class="d-flex gap-3 align-items-center">
       <a href="/dashboard">Dashboard</a>
       <a href="/account">My account</a>
-      {% if current_role in ['tutor', 'student'] %}
       <a href="/messages">Messages</a>
-      {% endif %}
       {% if user_roles %}
       <form id="role-switcher" class="d-flex gap-2 align-items-center">
         <label for="active-role">Role</label>
