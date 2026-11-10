@@ -13,6 +13,7 @@
 .profile-avatar { display: grid; place-items: center; width: 80px; height: 80px; margin-bottom: 20px; border: 1px solid #ded5e5; border-radius: 50%; background: #fff; color: #68616d; font-size: 2rem; font-weight: 650; }
 .profile-summary h2 { max-width: 100%; margin: 0 0 12px; font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 20px; background: #ede6f1; color: #68616d; font-size: .75rem; font-weight: 600; }
+.profile-summary .profile-button { margin-top: 24px; }
 .profile-summary > p { margin: 24px 0; color: #68616d; font-size: .875rem; line-height: 1.6; }
 .profile-sections { display: grid; min-width: 0; gap: 32px; }
 .profile-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
