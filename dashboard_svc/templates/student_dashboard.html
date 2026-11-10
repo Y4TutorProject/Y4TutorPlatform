@@ -13,7 +13,7 @@
   <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   <header class="dashboard-intro">
     <h1 id="student-dashboard-title">Find your tutor</h1>
-    <p id="student-dashboard-intro">Welcome{% if username %}, {{ username }}{% endif %}. Select a module to find your tutor.</p>
+    <p id="student-dashboard-intro">Select a module to view tutors.</p>
     <button id="open-tutor-applications" type="button" class="btn btn-primary mt-3" aria-controls="tutor-application-panel" aria-expanded="false" hidden>Apply to be a tutor</button>
   </header>
 
@@ -23,7 +23,7 @@
         <h2 id="tutor-application-title" class="h4 mb-0">Applicable modules</h2>
         <button id="close-tutor-applications" type="button" class="btn btn-outline-secondary">Close</button>
       </div>
-      <p>Choose a module from a previous year of your programme and enter your grade. Your module lecturer will review your application.</p>
+      <p>Apply for modules from previous years. Your module lecturer reviews applications.</p>
       <form id="module-search-form" class="d-flex gap-2" role="search">
         <label for="tutor-module-query" class="visually-hidden">Search applicable modules</label>
         <input id="tutor-module-query" name="q" type="search" maxlength="200" class="form-control" placeholder="Search applicable modules">
@@ -42,7 +42,6 @@
         </div>
         <span class="module-count" aria-label="{{ modules|length }} modules">{{ modules|length }}</span>
       </div>
-      <p class="sidebar-description">Select a module to see available tutors.</p>
       {% if moodle_error %}
       <p class="sidebar-message" role="status">{{ moodle_error }}</p>
       {% elif not modules %}
@@ -65,7 +64,7 @@
       <div class="tutor-heading">
         <div>
           <h2 id="tutors-title">Your tutors</h2>
-          <p id="selected-module">Choose a module to get started.</p>
+          <p id="selected-module">No module selected.</p>
         </div>
       </div>
       <div id="tutor-results" aria-live="polite" aria-busy="false">

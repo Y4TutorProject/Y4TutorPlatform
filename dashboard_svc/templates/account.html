@@ -10,14 +10,12 @@
 <div class="profile-shell">
   <header class="profile-heading">
     <h1 id="form-title">Your profile</h1>
-    <p>Your details and the ways you like to learn, all in one place.</p>
   </header>
   <div id="account-details" class="profile-layout">
     <aside class="profile-card profile-summary" aria-label="Profile overview">
       <div class="profile-avatar" aria-hidden="true">{{ (user.username or '?')[:1] | upper }}</div>
       <h2>{{ user.username }}</h2>
       {% if user.email_verified %}<span class="profile-status"><span aria-hidden="true">✓</span> Verified account</span>{% endif %}
-      <p>Your profile helps keep your learning and tutoring experience personal to you.</p>
       <a class="profile-button profile-button-secondary" href="/dashboard">Back to dashboard</a>
     </aside>
     <div class="profile-sections">
@@ -25,7 +23,6 @@
         <div class="profile-section-heading">
           <div>
             <h2 id="profile-details-title">Personal details</h2>
-            <p>The details linked to your account.</p>
           </div>
         </div>
         <dl class="profile-details">
@@ -37,7 +34,6 @@
         <div class="profile-section-heading">
           <div>
             <h2 id="preferences-title">Learning preferences</h2>
-            <p>How you prefer to take in new information.</p>
           </div>
           <span class="profile-scale">0–10 scale</span>
         </div>
@@ -59,12 +55,11 @@
         </div>
         {% else %}
         <div class="profile-empty">
-          <h3>Make learning feel more like you.</h3>
-          <p>Rate each learning approach from 0 to 10 to help us find tutors who suit your style.</p>
+          <h3>No learning preferences set.</h3>
+          <p>Rate each approach from 0 to 10.</p>
         </div>
         {% endif %}
         <div class="profile-card-footer">
-          <p>You can update these whenever your preferences change.</p>
           <a class="profile-button" href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
         </div>
       </section>

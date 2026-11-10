@@ -48,7 +48,7 @@ function setupProgrammeModules() {
         return;
       }
       heading.textContent = "Apply to be a Tutor";
-      intro.textContent = "Share your knowledge. Choose an eligible module below and apply to tutor students in earlier years of your programme.";
+      intro.textContent = "Choose an eligible module and enter your grade.";
       panel.hidden = false;
       openButton.textContent = "Close the apply menu";
       openButton.setAttribute("aria-expanded", "true");
