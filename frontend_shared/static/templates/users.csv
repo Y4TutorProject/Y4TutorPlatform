@@ -1,0 +1,3 @@
+email,first_name,last_name,username,course_code,year,module_code,role
+student@yourcollege.ie,Alex,Example,alex_example,COMP,2,,student
+tutor@yourcollege.ie,Sam,Example,sam_example,COMP,1,DB1,tutor

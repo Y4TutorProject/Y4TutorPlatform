@@ -4,7 +4,9 @@
 <h1>Admin Dashboard</h1>
 <p>Welcome, {{ user.username }}! Create your college's courses and modules, assign users, and manage your LMS connection.</p>
 {% include '_academic_management.html' %}
+{% include '_csv_upload.html' %}
 <script src="{{ url_for('static', filename='academic_admin.js') }}" defer></script>
+<script src="{{ url_for('static', filename='csv_upload.js') }}" defer></script>
 <div class="card"><div class="card-body p-4">
   {% include "_lms_settings.html" %}
 </div></div>

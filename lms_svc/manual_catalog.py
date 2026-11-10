@@ -13,12 +13,13 @@ def merge_manual(catalog, manual, user):
     result['modules'].extend(manual['modules'])
     matches = [profile for profile in result['users']
                if profile.get('email', '').strip().casefold() == user['email'].strip().casefold()]
-    own_links = [a for a in manual['assignments'] if a['user_id'] == user['id']]
+    own_links = [a for a in manual['assignments'] if a.get('user_id') == user['id']]
+    directory = next((p for p in manual.get('directory_users', []) if p['email'] == user['email'].strip().casefold()), None)
     source_id = matches[0]['source_id'] if len(matches) == 1 else 'manual:' + user['id']
     # An imported suspended/ambiguous profile must never be bypassed by manual data.
-    if not matches and own_links:
-        result['users'].append({'source_id': source_id, 'email': user['email'],
-                                'username': user['username'], 'suspended': False})
+    if not matches and (own_links or directory):
+        result['users'].append({**(directory or {}), 'source_id': source_id, 'email': user['email'],
+                                'username': (directory or {}).get('username') or user['username'], 'suspended': False})
     manual_roles = {}
     for link in own_links:
         targets = [link['target_id']] if link['target_type'] == 'module' else [

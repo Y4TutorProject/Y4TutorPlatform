@@ -68,8 +68,9 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             raise AuthenticationError("Your college is not available.", 404)
         connection = sync.connections.get(college_id)
         catalog = importer.store.get(college_id, connection["provider"], connection["base_url"]) if connection else None
-        manual = colleges.get_manual_academic(college_id)
-        if not catalog and not any(a['user_id'] == user['id'] for a in manual['assignments']):
+        manual = colleges.get_manual_academic(college_id, user)
+        has_directory_profile = any(p['email'] == user['email'].strip().casefold() for p in manual.get('directory_users', []))
+        if not catalog and not has_directory_profile and not any(a.get('user_id') == user['id'] for a in manual['assignments']):
             raise AuthenticationError("Your college has not imported LMS information yet.", 404)
         catalog = merge_manual(catalog, manual, user)
         # The verified account's college and email are the only lookup keys.
@@ -148,7 +149,7 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
             raise AuthenticationError("Module not found in your programme.", 404)
         manual = colleges.get_manual_academic(user['college_id'])
         manual_tutors = {a['user_id'] for a in manual['assignments']
-                         if a['target_type'] == 'module' and a['target_id'] == module_id and a['role'] == 'tutor'}
+                         if a.get('user_id') and a['target_type'] == 'module' and a['target_id'] == module_id and a['role'] == 'tutor'}
         return jsonify(tutor_ids=sorted(set(participation.tutors_for_module(user['college_id'], module_id)) | manual_tutors))
 
     @app.post("/students/me/modules/<module_id>/tutor-application")

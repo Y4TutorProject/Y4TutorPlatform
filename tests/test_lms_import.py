@@ -24,8 +24,9 @@ def integration(services, monkeypatch):
     college = College(uuid.uuid4(), "Import College", admin_id=user["id"])
     dao.add_college(college)
     class Colleges:
-        def get_manual_academic(self, college_id):
-            response = college_client.get(f'/internal/college/{college_id}/manual-academic',
+        def get_manual_academic(self, college_id, user=None):
+            response = college_client.open(f'/internal/college/{college_id}/manual-academic',
+                method='POST' if user else 'GET', json={'user_id': user['id'], 'email': user['email']} if user else None,
                 headers={'X-College-Sync-Token': 'test-service-token'})
             assert response.status_code == 200
             return response.json['catalog']

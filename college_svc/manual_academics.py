@@ -30,8 +30,10 @@ class ManualAcademics:
         self.courses = database['manual_courses']
         self.modules = database['manual_modules']
         self.assignments = database['manual_assignments']
+        self.directory = database['manual_directory_users']
         self.courses.create_index([('college_id', 1), ('key', 1)], unique=True)
         self.modules.create_index([('college_id', 1), ('course_id', 1), ('year', 1), ('key', 1)], unique=True)
+        self.directory.create_index([('college_id', 1), ('email', 1)], unique=True)
 
     @staticmethod
     def public(record):
@@ -40,7 +42,7 @@ class ManualAcademics:
     def catalog(self, college_id):
         return {name: [self.public(row) for row in collection.find({'college_id': college_id}).sort('name', 1)]
                 for name, collection in [('courses', self.courses), ('modules', self.modules),
-                                         ('assignments', self.assignments)]}
+                                         ('assignments', self.assignments), ('directory_users', self.directory)]}
 
     def create_course(self, college_id, data):
         name = text(data.get('name'), 200).strip()
@@ -75,11 +77,19 @@ class ManualAcademics:
         if not collection.find_one({'id': target_id, 'college_id': college_id}):
             raise ValueError('Choose a record from this college.')
         record_id = str(uuid.uuid5(uuid.UUID(college_id), f'{user_id}/{kind}/{target_id}/{role}'))
+        existing = self.assignments.find_one({'college_id': college_id, 'user_id': user_id,
+            'target_type': kind, 'target_id': target_id, 'role': role})
+        if existing:
+            record_id = existing['id']
         record = {'id': record_id, 'college_id': college_id, 'user_id': user_id,
                   'target_type': kind, 'target_id': target_id, 'role': role,
                   'year': year(data.get('year')) if kind == 'course' else None}
         self.assignments.replace_one({'_id': record_id}, {**record, '_id': record_id}, upsert=True)
         return record
+
+    def link_directory_user(self, college_id, user_id, email):
+        self.directory.update_one({'college_id': college_id, 'email': email}, {'$set': {'user_id': user_id}})
+        self.assignments.update_many({'college_id': college_id, 'user_email': email}, {'$set': {'user_id': user_id}})
 
 
 def register_manual_academics(app, database):
@@ -119,7 +129,7 @@ def register_manual_academics(app, database):
             return jsonify(assignment=store.assign(college_id, data, users)), 201
         return jsonify(error='Academic resource not found.'), 404
 
-    @app.get('/internal/college/<college_id>/manual-academic')
+    @app.route('/internal/college/<college_id>/manual-academic', methods=['GET', 'POST'])
     def internal(college_id):
         token = app.config['COLLEGE_SYNC_TOKEN']
         if not token or not hmac.compare_digest(token.encode(), request.headers.get('X-College-Sync-Token', '').encode()):
@@ -128,7 +138,17 @@ def register_manual_academics(app, database):
         college = app.extensions['college_service'].get_college_by_id(college_id)
         if not college or college.status != CollegeStatus.ACTIVE:
             return jsonify(error='College not found.'), 404
+        if request.method == 'POST':
+            from .csv_import import email_address
+            data = request.get_json(silent=True)
+            if not isinstance(data, dict):
+                raise ValueError('A JSON object is required.')
+            store.link_directory_user(college_id, identifier(data.get('user_id')),
+                                      email_address(data.get('email')))
         return jsonify(catalog={'college_id': college_id, **store.catalog(college_id)})
+
+    from .csv_import import register_csv_import
+    register_csv_import(app, store, authorize)
 
     @app.errorhandler(ValueError)
     def invalid(error):
