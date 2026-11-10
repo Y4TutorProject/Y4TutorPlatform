@@ -12,6 +12,7 @@ class Element {
   reset() { for (const field of Object.values(this.elements)) field.value = ''; }
   get options() { return this.children; }
   querySelector() { return this.submit; }
+  click() { return this.events.click?.(); }
 }
 
 function screen() {
@@ -38,7 +39,7 @@ function screen() {
   const calls = [], redirects = [];
   let failure = null;
   const context = vm.createContext({
-    document: { getElementById: node, createElement: tag => new Element(tag) },
+    document: { getElementById: node, createElement: tag => new Element(tag), addEventListener() {} },
     window: { location: { replace: url => redirects.push(url) } },
     errorMessage: error => error.message,
     requestJSON: async (url, options = {}) => {

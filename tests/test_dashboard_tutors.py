@@ -62,12 +62,22 @@ def test_manual_academic_controls_require_college_administrator(frontend, monkey
     assert response.status_code == status
     assert ('id="academic-management"' in html) is (status == 200)
     assert ('id="lms-imported-data"' in html) is (status == 200)
+    assert ('id="academic-csv-upload"' in html) is (status == 200)
     if status == 200:
         for marker in ('create-course-form', 'create-module-form', 'assign-academic-user-form'):
             assert f'id="{marker}"' in html
         assert 'data-college-id="college-id"' in html
         assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/academic_admin.js')
         assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/lms_catalog.js')
+        assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/csv_upload.js')
+
+
+@pytest.mark.parametrize('kind', ['modules', 'users'])
+def test_csv_templates_are_downloadable(frontend, kind):
+    _, client = frontend
+    response = client.get(f'/dashboard/static/templates/{kind}.csv')
+    assert response.status_code == 200
+    assert (b'course_code,course_name,module_code' if kind == 'modules' else b'email,first_name,last_name') in response.data
 
 
 @pytest.mark.parametrize("tutor_ids", [[], ["tutor-1", "tutor-2"]])

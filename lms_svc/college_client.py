@@ -66,11 +66,13 @@ class CollegeClient(AcademicCatalogClient):
     def get_catalog(self, college_id, catalog_id):
         return self._catalog_request(college_id, catalog_id=catalog_id)
 
-    def get_manual_academic(self, college_id):
+    def get_manual_academic(self, college_id, user=None):
         if not self.sync_token:
             raise CollegeServiceUnavailable()
-        request = Request(f'{self.base_url}/internal/college/{college_id}/manual-academic',
-                          headers={'X-College-Sync-Token': self.sync_token})
+        url = f'{self.base_url}/internal/college/{college_id}/manual-academic'
+        body = json.dumps({'user_id': user['id'], 'email': user['email'].strip().casefold()}).encode() if user else None
+        request = Request(url, data=body, method='POST' if user else 'GET',
+                          headers={'X-College-Sync-Token': self.sync_token, 'Content-Type': 'application/json'})
         try:
             with self.opener.open(request, timeout=5) as response:
                 catalog = json.load(response)['catalog']

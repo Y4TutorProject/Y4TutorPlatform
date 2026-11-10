@@ -55,6 +55,9 @@ async function setupAcademicManagement() {
     const courses = new Map(records.courses.map(course => [course.id, course]));
     const modules = new Map(records.modules.map(module => [module.id, module]));
     const names = new Map(users.map(user => [user.id, `${user.username} (${user.email})`]));
+    const directory = records.directory_users || [];
+    const directoryNames = new Map(directory.map(user => [user.email,
+      `${user.username || [user.first_name, user.last_name].filter(Boolean).join(' ') || 'User'} (${user.email})`]));
     const label = record => record.name + (record.code ? ` (${record.code})` : '');
     const moduleLabel = module => `${label(courses.get(module.course_id))} — Year ${module.year} — ${label(module)}`;
     options(moduleForm.elements.course_id, records.courses.map(c => [c.id, label(c)]), 'Choose a course');
@@ -81,7 +84,7 @@ async function setupAcademicManagement() {
     for (const assignment of records.assignments) {
       const target = assignment.target_type === 'course' ? `${label(courses.get(assignment.target_id))} — Year ${assignment.year}` : moduleLabel(modules.get(assignment.target_id));
       const row = node('li', '', 'list-group-item d-flex justify-content-between align-items-center gap-3');
-      row.append(node('span', `${names.get(assignment.user_id) || 'Unavailable user'} · ${assignment.role} · ${target}`));
+      row.append(node('span', `${names.get(assignment.user_id) || directoryNames.get(assignment.user_email) || assignment.user_email || 'Unavailable user'} · ${assignment.role} · ${target}`));
       const remove = node('button', 'Remove assignment', 'btn btn-sm btn-outline-danger');
       remove.type = 'button';
       remove.addEventListener('click', async () => {
@@ -97,6 +100,10 @@ async function setupAcademicManagement() {
       assignments.append(row);
     }
     if (!records.assignments.length) assignments.append(node('li', 'No user assignments yet.', 'list-group-item'));
+    const directoryList = document.getElementById('academic-directory-list');
+    directoryList.replaceChildren(...directory.map(user => node('li',
+      `${directoryNames.get(user.email)} · ${user.user_id ? 'Linked account' : 'Awaiting registration'}`, 'list-group-item')));
+    if (!directory.length) directoryList.append(node('li', 'No CSV directory users yet.', 'list-group-item'));
     status.textContent = `${records.courses.length} course(s), ${records.modules.length} module(s), ${records.assignments.length} assignment(s).`;
   }
   async function load() {
@@ -139,6 +146,7 @@ async function setupAcademicManagement() {
     try { await load(); } catch (error) { failed(status, error); }
     finally { busy = false; enableForms(); }
   });
+  document.addEventListener('academic-data-updated', () => refresh.click());
   busy = true;
   enableForms();
   try { await load(); } catch (error) { failed(status, error); }
