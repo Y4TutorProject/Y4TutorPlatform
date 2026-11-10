@@ -1,8 +1,9 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Tutor Dashboard{% endblock %}
 {% block dashboard_content %}
+<header class="dashboard-heading">
 <h1>Tutor Dashboard</h1>
-<p>Welcome, {{ user.username }}!</p>
+</header>
 <div class="card"><div class="card-body p-4">
   {% with kind='learning', scores=user.preferences %}{% include "_preferences_summary.html" %}{% endwith %}
 </div></div>

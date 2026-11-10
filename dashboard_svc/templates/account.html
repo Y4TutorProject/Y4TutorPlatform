@@ -1,27 +1,70 @@
 {% extends "dashboard_base.html" %}
-{% block title %}Your account{% endblock %}
+{% block title %}Your profile{% endblock %}
 {% block page %}account{% endblock %}
+{% block body_class %}profile-page{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='profile.css') }}">
+{% endblock %}
 {% block dashboard_content %}
-  <h1 id="form-title" class="h4 mb-4">Your account</h1>
-  <div id="account-details">
-    <p class="text-muted">You're signed in.</p>
-    <dl class="mb-4">
-      <div><dt>Username</dt><dd class="text-break" id="account-username">{{ user.username }}</dd></div>
-      <div><dt>Email address</dt><dd class="text-break" id="account-email">{{ user.email }}</dd></div>
-    </dl>
-    <section class="mt-4" aria-labelledby="preferences-title">
-      <h2 id="preferences-title" class="h5">Learning preferences</h2>
-      <p>Rate how much you prefer each approach to learning, from 0 to 10.</p>
-      <a href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
-    </section>
-    {% if is_tutor %}
-    <section class="mt-4" aria-labelledby="teaching-preferences-title">
-      <h2 id="teaching-preferences-title" class="h5">Teaching preferences</h2>
-      <p>Rate how much you prefer each approach to teaching, from 0 to 10.</p>
-      <a href="/preferences?type=teaching">{{ 'Edit' if user.teaching_preferences_completed is sameas true else 'Set up' }} your teaching preferences</a>
-    </section>
-    {% endif %}
+<div class="profile-shell">
+  <header class="profile-heading">
+    <h1 id="form-title">Your profile</h1>
+  </header>
+  <div id="account-details" class="profile-layout">
+    <aside class="profile-card profile-summary" aria-label="Profile overview">
+      <div class="profile-avatar" aria-hidden="true">{{ (user.username or '?')[:1] | upper }}</div>
+      <h2>{{ user.username }}</h2>
+      {% if user.email_verified %}<span class="profile-status"><span aria-hidden="true">✓</span> Verified account</span>{% endif %}
+      <a class="profile-button profile-button-secondary" href="/dashboard">Back to dashboard</a>
+    </aside>
+    <div class="profile-sections">
+      <section class="profile-card" aria-labelledby="profile-details-title">
+        <div class="profile-section-heading">
+          <div>
+            <h2 id="profile-details-title">Personal details</h2>
+          </div>
+        </div>
+        <dl class="profile-details">
+          <div><dt>Username</dt><dd class="text-break" id="account-username">{{ user.username }}</dd></div>
+          <div><dt>Email address</dt><dd class="text-break" id="account-email">{{ user.email }}</dd></div>
+        </dl>
+      </section>
+      <section class="profile-card" aria-labelledby="preferences-title">
+        <div class="profile-section-heading">
+          <div>
+            <h2 id="preferences-title">Learning preferences</h2>
+          </div>
+          <span class="profile-scale">0–10 scale</span>
+        </div>
+        {% if user.preferences_completed is not sameas false and user.preferences %}
+        <div class="profile-preferences">
+          {% for key, label, description in [
+            ('visual', 'Visual', 'Pictures, diagrams and demonstrations'),
+            ('auditory', 'Auditory', 'Explanations and discussions'),
+            ('reading_writing', 'Reading and writing', 'Reading, notes and written explanations'),
+            ('kinesthetic', 'Hands-on', 'Practical exercises and activities')
+          ] %}
+          {% set score = user.preferences.get(key, 0) %}
+          <div class="profile-preference">
+            <div class="profile-preference-label"><h3>{{ label }}</h3><span>{{ score }}<span class="profile-score-max"> / 10</span></span></div>
+            <p>{{ description }}</p>
+            <meter class="profile-meter" min="0" max="10" value="{{ score }}" aria-label="{{ label }} preference">{{ score }} out of 10</meter>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="profile-empty">
+          <h3>No learning preferences set.</h3>
+          <p>Rate each approach from 0 to 10.</p>
+        </div>
+        {% endif %}
+        <div class="profile-card-footer">
+          <a class="profile-button" href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
+        </div>
+      </section>
+    </div>
   </div>
   <noscript><p class="alert alert-info mt-3">Enable JavaScript to sign out or manage your settings.</p></noscript>
-  <p class="mt-3 mb-0"><a href="/dashboard">Back to dashboard</a></p>
+</div>
 {% endblock %}

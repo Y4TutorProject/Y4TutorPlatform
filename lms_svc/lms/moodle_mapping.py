@@ -29,7 +29,7 @@ class MoodleCatalogMapper(LMSCatalogMapper):
             {'name': 'current_year_source', 'label': "Student's current year is defined by", 'type': 'select', 'default': 'enrolments',
              'choices': {'enrolments': 'Highest enrolled module year', 'profile_field': 'Moodle user profile field'}},
             {'name': 'current_year_field', 'label': 'Current year user-profile field shortname', 'type': 'text', 'default': 'current_year'},
-            {'name': 'role_source', 'label': 'Student and lecturer roles are defined by', 'type': 'select', 'default': 'enrolments',
+            {'name': 'role_source', 'label': 'Student and lecturer roles are defined by', 'type': 'select', 'default': 'course_roles',
              'choices': {'enrolments': 'Treat enrolments as Student (legacy)', 'course_roles': 'Moodle course role shortnames'}},
             {'name': 'student_roles', 'label': 'Moodle Student role shortnames (comma separated)', 'type': 'list', 'default': ['student']},
             {'name': 'lecturer_roles', 'label': 'Moodle Lecturer role shortnames (comma separated)', 'type': 'list', 'default': ['editingteacher', 'teacher']},
@@ -165,6 +165,13 @@ class MoodleCatalogMapper(LMSCatalogMapper):
                                    'target_type': 'module', 'roles': link['roles']})
                 if len(enrolments) > 500000:
                     raise LMSImportError('Moodle enrolment import exceeds the supported size limit.')
+        if options['role_source'] == 'course_roles':
+            lecturers = {}
+            for link in enrolments:
+                if 'lecturer' in link['roles']:
+                    lecturers.setdefault(link['course_source_id'], set()).add(link['user_source_id'])
+            if any(len(people) > 1 for people in lecturers.values()):
+                raise LMSImportError('Each module must have only one lecturer in Moodle; the import was not saved.')
         users = []
         for user in raw['users']:
             clean = {key: value for key, value in user.items() if key not in ('customfields', 'idnumber')}

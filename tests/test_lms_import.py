@@ -59,9 +59,10 @@ def integration(services, monkeypatch):
         "core_course_get_courses": [{"id": 1}, {"id": 20, "fullname": "Databases", "shortname": "DB4", "categoryid": 30}],
         "core_course_get_categories": [{"id": 30, "name": "Computing", "parent": 0}],
         "core_enrol_get_users_courses": [{"id": 20}],
+        "core_enrol_get_enrolled_users": [{"id": 10, "roles": [{"shortname": "student"}]}],
     }
     monkeypatch.setattr(MoodleProvider, "_call", lambda self, function, **kwargs: responses[function])
-    payload = {"provider": "moodle", "base_url": "https://moodle.college.test", "api_key": "secret-test-token"}
+    payload = {"provider": "moodle", "base_url": "https://moodle.college.test", "api_key": "secret-test-token", "provider_options": {"role_source": "enrolments"}}
     path = f"/college/{college.college_id}/lms"
     return users_app, client, dao, service, payload, path, {"X-CSRFToken": token}, responses
 
@@ -124,7 +125,7 @@ def test_missing_programme_does_not_publish_detached_modules(integration):
 def test_optional_activity_mapping(integration):
     _, client, _, _, payload, path, headers, responses = integration
     responses["core_course_get_contents"] = [{"modules": [{"id": 40, "name": "Quiz", "modname": "quiz"}]}]
-    response = client.post(path + "/import", json={**payload, "mapping": "activities"}, headers=headers)
+    response = client.post(path + "/import", json={**payload, "mapping": "activities", "provider_options": {"module_source": "activities", "programme_source": "moodle_course", "role_source": "enrolments"}}, headers=headers)
     assert response.status_code == 200
     assert response.json["mapping"] == "activities"
     catalog = client.get(path + "/catalog", query_string={"base_url": payload["base_url"]}, headers=headers).json["catalog"]

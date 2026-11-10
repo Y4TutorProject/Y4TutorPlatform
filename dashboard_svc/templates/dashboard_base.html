@@ -1,34 +1,24 @@
 {% extends "base.html" %}
 {% block page %}dashboard{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
 {% block head %}
-<script src="{{ url_for('static', filename='role_switcher.js') }}" defer></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard_theme.css') }}">
 {% endblock %}
 {% block navigation %}
-<nav class="navbar bg-white border-bottom" aria-label="Main navigation">
+<nav class="navbar bg-white border-bottom platform-nav" aria-label="Main navigation">
   <div class="container">
     <a class="navbar-brand" href="/dashboard">TutorPlatform</a>
-    <div class="d-flex gap-3 align-items-center">
-      <a href="/dashboard">Dashboard</a>
-      {% if can_manage_college %}<a href="/admin-dashboard">College administration</a>{% endif %}
-      <a href="/account">My account</a>
-      <a href="/messages">Messages</a>
-      {% if user_roles %}
-      <form id="role-switcher" class="d-flex gap-2 align-items-center">
-        <label for="active-role">Role</label>
-        <select id="active-role" class="form-select form-select-sm">
-          <option value="" {% if not current_role %}selected{% endif %} disabled>Choose role</option>
-          {% for role in user_roles %}
-          <option value="{{ role }}" {% if role == current_role %}selected{% endif %}>{{ role | replace('_', ' ') | title }}</option>
-          {% endfor %}
-        </select>
-        <button class="btn btn-outline-secondary btn-sm" type="submit">Switch</button>
-      </form>
+    <div class="platform-nav-actions">
+      <a class="platform-nav-link" href="{{ '/admin-dashboard' if can_manage_college and not is_lecturer else '/dashboard' }}" {% if request.path in ('/dashboard', '/lecturer-dashboard', '/admin-dashboard') %}aria-current="page"{% endif %}>Dashboard</a>
+      <a class="platform-nav-link" href="/messages" {% if request.path == '/messages' %}aria-current="page"{% endif %}>Messages</a>
+      <a class="platform-nav-link" href="/account" {% if request.path in ('/account', '/preferences') %}aria-current="page"{% endif %}>My account</a>
+      {% if is_lecturer %}
+      <span class="platform-role">Lecturer</span>
       {% endif %}
-      <button class="btn btn-outline-secondary" id="logout-button" type="button">Sign out</button>
+      <button class="btn platform-signout" id="logout-button" type="button">Sign out</button>
     </div>
   </div>
 </nav>
-<p id="role-switch-error" class="container text-danger" role="alert" hidden></p>
 {% endblock %}
 {% block main %}
 <main class="container py-5">

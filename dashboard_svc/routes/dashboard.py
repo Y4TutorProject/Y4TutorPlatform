@@ -1,10 +1,11 @@
-from flask import Blueprint, abort, g, redirect
+from flask import Blueprint, abort, g, redirect, render_template
 
 from users_client import login_required
 from .account import can_manage_college
 from .admin import render_admin_dashboard
 from .student import render_student_dashboard
 from .tutor import needs_teaching_preferences, render_tutor_dashboard
+from .lecturer import render_lecturer_dashboard
 
 bp = Blueprint("dashboard", __name__)
 
@@ -34,6 +35,19 @@ def dashboard():
     if manages_college:
         return render_admin_dashboard(user, manages_college)
     return redirect("/account")
+
+
+@bp.get('/tutor-applications')
+@login_required
+def lecturer_applications():
+    return render_template('lecturer_applications.html', user=g.user,
+                           can_manage_college=can_manage_college(g.user))
+
+
+@bp.get('/lecturer-dashboard')
+@login_required
+def lecturer_dashboard():
+    return render_lecturer_dashboard(g.user, can_manage_college(g.user))
 
 
 # temporary user data check

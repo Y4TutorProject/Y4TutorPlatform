@@ -1,162 +1,64 @@
 {% extends "dashboard_base.html" %}
-
 {% block title %}Messages{% endblock %}
-{% block body_class %}bg-light text-dark{% endblock %}
+{% block body_class %}messages-page{% endblock %}
 {% block page %}chat{% endblock %}
-
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='messages.css') }}">
+{% endblock %}
 {% block main %}
-
 <script src="{{ url_for('static', filename='messaging.js') }}" defer></script>
-
-<!-- Carries the chat to open on page load (empty if none) -->
-<div
-    id="chat-app"
-    data-user-id="{{ user }}"
-    data-open-chat-id="{{ openChat or '' }}"
-></div>
-
-<div class="container-fluid py-3">
-    <div class="card shadow-lg border-0 overflow-hidden">
-
-        <div class="row g-0" style="height: 80vh;">
-
-            <!-- Chat List Sidebar -->
-            <div class="col-lg-4 col-xl-3 border-end bg-white">
-
-                <div class="p-3 border-bottom">
-                    <h5 class="mb-0 fw-bold">Messages</h5>
-                </div>
-
-                <div
-                    id="chat-list"
-                    class="overflow-auto"
-                    style="height: calc(80vh - 65px);"
-                >
-                    {% for chat in chats %}
-
-                    <button
-                        type="button"
-                        class="btn w-100 text-start border-0 border-bottom rounded-0 p-3 chat-item"
-                        id="chat-{{ chat.chatId }}"
-                        data-chat-id="{{ chat.chatId }}"
-                        data-display-name="{{ chat.displayName }}"
-                    >
-                        <div class="d-flex justify-content-between align-items-center">
-                            <p class="mb-0 text-truncate fw-semibold">
-                                <!-- show only the first 5 characters -->
-                                {{ chat.displayName }}
-                            </p>
-                            
-                            <small
-                                class="last-time text-muted"
-                                data-timestamp="{{ chat.timestamp }}"
-                            >
-                                {{ chat.timestamp }}
-                            </small>
-                        </div>
-
-                        <div
-                            class="last-msg small text-muted {% if chat.unread %}fw-bold text-dark{% endif %}"
-                        >
-                            {{ chat.lastMessage }}
-                        </div>
-                    </button>
-
-                    {% endfor %}
-                </div>
-
-            </div>
-
-            <!-- Main Chat Area -->
-            <div class="col-lg-8 col-xl-9 d-flex flex-column bg-body-tertiary">
-
-                <!-- Header -->
-                <div
-                    class="border-bottom bg-white p-3 d-flex align-items-center gap-3 flex-shrink-0"
-                >
-                    <div
-                        class="rounded-circle bg-primary"
-                        style="width:48px;height:48px;"
-                    ></div>
-
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="chat-header">
-                            Select a chat
-                        </h5>
-
-                        <small
-                            id="typing-indicator"
-                            class="text-primary d-none"
-                            aria-live="polite"
-                        >
-                            Typing...
-                        </small>
-                    </div>
-                </div>
-
-                <!-- Messages -->
-                <div
-                    id="conversation-area"
-                    class="flex-grow-1 overflow-auto p-4"
-                >
-                    <ul
-                        id="conversation-messages"
-                        class="list-unstyled mx-auto mb-0"
-                        style="max-width:900px;"
-                    >
-                    </ul>
-                </div>
-
-                <!-- Message input: always rendered, hidden until a chat is open -->
-                <div id="message-box" class="border-top bg-white p-3 {% if not openChat %}d-none{% endif %}">
-                    <div class="input-group">
-                        <input
-                            type="file"
-                            id="file-upload"
-                            multiple
-                            hidden
-                        >
-
-                        <label
-                            for="file-upload"
-                            class="btn btn-outline-secondary"
-                        >
-                            Upload
-                        </label>
-
-                        <input
-                            type="text"
-                            id="message-input"
-                            name="message"
-                            placeholder="Type a message..."
-                            class="form-control"
-                        >
-
-                        <button
-                            type="button"
-                            id="send-btn"
-                            class="btn btn-primary"
-                        >
-                            Send
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Shown until a chat is opened -->
-                <div
-                    id="no-chat-message"
-                    class="text-center p-4 {% if openChat %}d-none{% endif %}"
-                >
-                    <p class="text-muted mb-0">
-                        No chat selected
-                    </p>
-                </div>
-
-            </div>
-
+<div id="chat-app" data-user-id="{{ user }}" data-open-chat-id="{{ openChat or '' }}"></div>
+<main class="messages-shell">
+  <header class="messages-heading">
+    <h1>Messages</h1>
+  </header>
+  <div class="messages-layout">
+    <aside class="messages-sidebar" aria-labelledby="conversations-title">
+      <div class="messages-sidebar-heading">
+        <h2 id="conversations-title">Conversations</h2>
+        <span class="messages-count">{{ chats | length }}</span>
+      </div>
+      <div id="chat-list">
+        {% for chat in chats %}
+        <button type="button" class="chat-item" id="chat-{{ chat.chatId }}"
+                data-chat-id="{{ chat.chatId }}" data-display-name="{{ chat.displayName }}">
+          <span class="messages-chat-meta">
+            <span class="messages-chat-name">{{ chat.displayName }}</span>
+            <small class="last-time" data-timestamp="{{ chat.timestamp }}">{{ chat.timestamp }}</small>
+          </span>
+          <span class="last-msg {% if chat.unread %}fw-bold{% endif %}">{{ chat.lastMessage or 'No messages yet' }}</span>
+        </button>
+        {% else %}
+        <p class="messages-sidebar-empty">No conversations yet.</p>
+        {% endfor %}
+      </div>
+    </aside>
+    <section class="messages-conversation" aria-labelledby="chat-header">
+      <header class="messages-chat-heading">
+        <div class="messages-avatar" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-4 3V11.5A7.5 7.5 0 0 1 9.5 4h3A7.5 7.5 0 0 1 20 11.5Z"/></svg>
         </div>
-
-    </div>
-</div>
-
+        <div>
+          <h2 id="chat-header">Select a conversation</h2>
+          <small id="typing-indicator" class="d-none" aria-live="polite">Typing...</small>
+        </div>
+      </header>
+      <div id="conversation-area" aria-live="polite" aria-relevant="additions">
+        <ul id="conversation-messages" class="list-unstyled mb-0"></ul>
+      </div>
+      <div id="message-box" class="{% if not openChat %}d-none{% endif %}">
+        <div class="messages-composer">
+          <input type="file" id="file-upload" multiple hidden>
+          <label for="file-upload" class="messages-upload">Upload</label>
+          <input type="text" id="message-input" name="message" placeholder="Type a message..." class="form-control" aria-label="Message">
+          <button type="button" id="send-btn" class="messages-send">Send</button>
+        </div>
+      </div>
+      <div id="no-chat-message" class="{% if openChat %}d-none{% endif %}">
+        <p>Select a conversation to view messages.</p>
+      </div>
+    </section>
+  </div>
+</main>
 {% endblock %}

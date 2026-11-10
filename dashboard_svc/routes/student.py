@@ -2,7 +2,7 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 
-from flask import Blueprint, abort, current_app, redirect, render_template, request
+from flask import Blueprint, abort, current_app, g, redirect, render_template, request
 
 from clean_text import clean_deep
 from users_client import login_required, open_upstream, upstream_request
@@ -30,6 +30,10 @@ def render_student_dashboard(user, can_manage_college):
         moodle_error = MOODLE_PROFILE_MISSING if error.code == 404 else MOODLE_UNAVAILABLE
     except (URLError, OSError, ValueError):
         moodle_error = MOODLE_UNAVAILABLE
+
+    if moodle and moodle.get('lecturer_modules'):
+        from .lecturer import render_lecturer_dashboard
+        return render_lecturer_dashboard(user, can_manage_college, moodle['lecturer_modules'])
 
     student = (moodle or {}).get("student") or {}
     modules = [
@@ -63,6 +67,8 @@ def get_tutors():
         for tutor_id in result["tutor_ids"]:
             if not isinstance(tutor_id, str) or not tutor_id:
                 raise ValueError("Invalid LMS tutor ID")
+            if tutor_id == g.user.get('id'):
+                continue
             profile_path = f"/users/{quote(tutor_id, safe='')}"
             with open_upstream(upstream_request("USERS_API_URL", profile_path)) as response:
                 profile = clean_deep(json.load(response))
