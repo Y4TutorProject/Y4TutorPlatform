@@ -1,4 +1,4 @@
-from flask import Blueprint, g, redirect
+from flask import Blueprint, abort, g, redirect
 
 from users_client import login_required
 from .account import can_manage_college
@@ -7,6 +7,14 @@ from .student import render_student_dashboard
 from .tutor import render_tutor_dashboard
 
 bp = Blueprint("dashboard", __name__)
+
+
+@bp.get('/admin-dashboard')
+@login_required
+def admin_dashboard():
+    if not can_manage_college(g.user):
+        abort(403)
+    return render_admin_dashboard(g.user, True)
 
 
 @bp.get("/dashboard")

@@ -124,6 +124,17 @@ def verify():
     return jsonify(user=current_user.to_public_dict())
 
 
+@auth.get("/college/<college_id>/users")
+@login_required
+def college_users(college_id):
+    if Role.COLLEGE_ADMIN not in current_user.roles or str(current_user.college) != college_id:
+        return jsonify(error="College administrator access required."), 403
+    college = current_app.extensions["college_client"].get_college(college_id)
+    if not college or college.get('admin_id') != str(current_user.id):
+        return jsonify(error="College not found or not owned by this administrator."), 403
+    return jsonify(users=current_app.extensions['users_dao'].list_college_users(college_id))
+
+
 @auth.post("/users/me/username")
 @login_required
 def choose_username():

@@ -296,7 +296,10 @@ async function setupLMSImport(collegeId) {
     if (syncButton.disabled) return;
     saveButton.disabled = syncButton.disabled = true;
     status.textContent = "Synchronizing college data…";
-    try { display((await call("/sync", "POST", {})).connection); }
+    try {
+      display((await call("/sync", "POST", {})).connection);
+      document.dispatchEvent(new Event('lms-catalog-updated'));
+    }
     catch (error) { status.textContent = errorMessage(error); }
     finally {
       saveButton.disabled = sessionExpired;

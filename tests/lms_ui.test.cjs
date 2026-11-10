@@ -22,14 +22,15 @@ class Element {
   reportValidity() { return true; }
 }
 function screen(connection = null, page = '') {
-  const redirects = [], calls = [], nodes = new Map();
+  const redirects = [], calls = [], dispatched = [], nodes = new Map();
   function node(id) { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); }
   const form = node('lms-form');
   form.elements = { provider: node('lms-provider'), api_key: node('lms-key'), base_url: node('lms-url'), enabled: node('lms-enabled') };
   form.querySelector = () => node('save-button');
   node('lms-settings').dataset = { collegeId: 'college-id' };
   const context = vm.createContext({
-    document: { body: { dataset: { page } }, getElementById: node, createElement: tag => new Element(tag) },
+    document: { body: { dataset: { page } }, getElementById: node, createElement: tag => new Element(tag), dispatchEvent(event) { dispatched.push(event.type); } },
+    Event: class { constructor(type) { this.type = type; } },
     window: { location: { replace: url => redirects.push(url) } },
     fetch: async (url, options) => {
       calls.push({ url, options });
@@ -38,10 +39,17 @@ function screen(connection = null, page = '') {
     },
   });
   vm.runInContext(fs.readFileSync('frontend_shared/static/auth.js', 'utf8'), context);
-  return { node, context, redirects, calls };
+  return { node, context, redirects, calls, dispatched };
 }
 const saved = { provider: 'moodle', base_url: 'https://college.edu', enabled: true,
   next_sync_at: '2026-11-03T02:00:00Z', timezone: 'Europe/Dublin' };
+
+test('Successful sync tells the imported data viewer to refresh', async () => {
+  const { node, context, dispatched } = screen(saved);
+  await context.setupLMSImport('college-id');
+  await node('lms-sync-button').events.click();
+  assert.deepEqual(dispatched, ['lms-catalog-updated']);
+});
 
 test('Provider selector and mapping fields are driven by installed adapter descriptions', async () => {
   const { node, context } = screen();

@@ -1,0 +1,40 @@
+<section id="lms-imported-data" class="card mt-4" data-college-id="{{ user.college_id }}" aria-labelledby="lms-imported-title">
+  <div class="card-body p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-2">
+      <h2 id="lms-imported-title" class="h4 mb-0">Imported LMS data</h2>
+      <button id="refresh-lms-data" class="btn btn-outline-secondary" type="button">Refresh imported data</button>
+    </div>
+    <p>Browse the latest successful LMS import. Use Sync now above to fetch changes from your college system.</p>
+    <p id="lms-catalog-status" role="status" aria-live="polite">Loading imported data…</p>
+    <p id="lms-catalog-source" class="text-muted"></p>
+    <div id="lms-catalog-browser" hidden>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label for="lms-catalog-type" class="form-label">Data to view</label>
+          <select id="lms-catalog-type" class="form-select">
+            <option value="courses">Courses and categories</option>
+            <option value="modules">Modules</option>
+            <option value="users">Users</option>
+            <option value="enrolments">Enrolments and roles</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label for="lms-catalog-search" class="form-label">Search imported records</label>
+          <input id="lms-catalog-search" type="search" class="form-control" placeholder="Search names, codes, emails or roles">
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <caption id="lms-catalog-caption" class="caption-top"></caption>
+          <thead><tr id="lms-catalog-columns"></tr></thead>
+          <tbody id="lms-catalog-rows"></tbody>
+        </table>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <button id="lms-catalog-previous" type="button" class="btn btn-outline-secondary" disabled>Previous</button>
+        <span id="lms-catalog-page" role="status" aria-live="polite"></span>
+        <button id="lms-catalog-next" type="button" class="btn btn-outline-secondary" disabled>Next</button>
+      </div>
+    </div>
+  </div>
+</section>

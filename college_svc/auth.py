@@ -140,3 +140,13 @@ class UsersAuthClient:
         status, data = self._request("POST", "/users/me/college", headers, {"college_id": college_id})
         if status != 200:
             raise AuthenticationError("College saved, but account setup could not finish. Submit again to retry.", 503)
+
+    def college_users(self, session_cookie, user_agent, college_id):
+        cookie = SimpleCookie()
+        cookie['tutor_session'] = session_cookie
+        status, data = self._request('GET', f'/college/{college_id}/users', {
+            'Cookie': cookie.output(header='').strip(), 'User-Agent': user_agent,
+        })
+        if status != 200 or not isinstance(data.get('users'), list):
+            raise AuthenticationError('Unable to load college users.', status if status in (401, 403) else 503)
+        return data['users']

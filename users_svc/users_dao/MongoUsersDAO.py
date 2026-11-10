@@ -155,6 +155,12 @@ class MongoUsersDAO(UsersDAO):
         """
         return self._from_document(self.collection.find_one({"email": email}))
 
+    def list_college_users(self, college_id):
+        return [{key: record[key] for key in ('id', 'username', 'email', 'roles')}
+                for record in self.collection.find({
+                    'college': college_id, 'status': 'active', 'email_verified': True,
+                }).sort('username', 1)]
+
     def setup_database(self):
         """Create unique indexes on user ID, username, and email, then return True.
 

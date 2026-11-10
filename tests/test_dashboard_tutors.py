@@ -51,6 +51,25 @@ def test_student_dashboard_renders_sidebar_and_tutor_area(frontend, monkeypatch)
     assert 'id="programme-modules"' in html
 
 
+@pytest.mark.parametrize('roles,status', [(['college_admin'], 200), (['student', 'college_admin'], 200), (['student'], 403)])
+def test_manual_academic_controls_require_college_administrator(frontend, monkeypatch, roles, status):
+    app, client = frontend
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+        json_response({'user': {'id': 'admin', 'username': 'Admin', 'roles': roles,
+                                'college_id': 'college-id', 'email_verified': True}}))
+    response = client.get('/admin-dashboard')
+    html = response.get_data(as_text=True)
+    assert response.status_code == status
+    assert ('id="academic-management"' in html) is (status == 200)
+    assert ('id="lms-imported-data"' in html) is (status == 200)
+    if status == 200:
+        for marker in ('create-course-form', 'create-module-form', 'assign-academic-user-form'):
+            assert f'id="{marker}"' in html
+        assert 'data-college-id="college-id"' in html
+        assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/academic_admin.js')
+        assert html.index('/dashboard/static/auth.js') < html.index('/dashboard/static/lms_catalog.js')
+
+
 @pytest.mark.parametrize("tutor_ids", [[], ["tutor-1", "tutor-2"]])
 def test_get_tutors_returns_profiles(frontend, monkeypatch, tutor_ids):
     app, client = frontend

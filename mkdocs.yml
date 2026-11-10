@@ -15,6 +15,7 @@ nav:
       - OpenAPI specification: api/openapi.yaml
   - Architecture:
       - Colleges: architecture/colleges.md
+      - Manual courses and modules: architecture/manual-academics.md
       - LMS integration: architecture/lms-integration.md
       - LMS adapters and mapping: architecture/lms-adapters.md
       - Matching system: architecture/matching-system.md

@@ -9,6 +9,7 @@
     <a class="navbar-brand" href="/dashboard">TutorPlatform</a>
     <div class="d-flex gap-3 align-items-center">
       <a href="/dashboard">Dashboard</a>
+      {% if can_manage_college %}<a href="/admin-dashboard">College administration</a>{% endif %}
       <a href="/account">My account</a>
       <a href="/messages">Messages</a>
       {% if user_roles %}

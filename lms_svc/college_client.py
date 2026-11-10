@@ -66,6 +66,24 @@ class CollegeClient(AcademicCatalogClient):
     def get_catalog(self, college_id, catalog_id):
         return self._catalog_request(college_id, catalog_id=catalog_id)
 
+    def get_manual_academic(self, college_id):
+        if not self.sync_token:
+            raise CollegeServiceUnavailable()
+        request = Request(f'{self.base_url}/internal/college/{college_id}/manual-academic',
+                          headers={'X-College-Sync-Token': self.sync_token})
+        try:
+            with self.opener.open(request, timeout=5) as response:
+                catalog = json.load(response)['catalog']
+            if catalog['college_id'] != college_id or any(not isinstance(catalog[k], list)
+                    for k in ('courses', 'modules', 'assignments')):
+                raise ValueError()
+            return catalog
+        except HTTPError as error:
+            error.close()
+            raise CollegeServiceUnavailable() from None
+        except (URLError, OSError, ValueError, KeyError, TypeError):
+            raise CollegeServiceUnavailable() from None
+
     def get_college(self, college_id):
         """Read a college from the service that owns college data.
 
