@@ -1,16 +1,14 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Your account{% endblock %}
 {% block page %}account{% endblock %}
-{% block content %}
+{% block dashboard_content %}
   <h1 id="form-title" class="h4 mb-4">Your account</h1>
-  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   <div id="account-details">
     <p class="text-muted">You're signed in.</p>
     <dl class="mb-4">
       <div><dt>Username</dt><dd class="text-break" id="account-username">{{ user.username }}</dd></div>
       <div><dt>Email address</dt><dd class="text-break" id="account-email">{{ user.email }}</dd></div>
     </dl>
-    <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
     <section class="mt-4" aria-labelledby="preferences-title">
       <h2 id="preferences-title" class="h5">Learning preferences</h2>
       <p>Rate how much you prefer each approach to learning, from 0 to 10.</p>

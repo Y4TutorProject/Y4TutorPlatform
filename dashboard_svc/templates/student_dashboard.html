@@ -8,6 +8,7 @@
 {% endblock %}
 {% block main %}
 <main class="student-dashboard">
+  <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   <header class="dashboard-intro">
     <h1>Find your tutor</h1>
     <p>Welcome{% if username %}, {{ username }}{% endif %}. Select a module to find your tutor.</p>
