@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, g
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from routes import register_routes
@@ -27,7 +27,6 @@ def create_app(config=None):
 
     @app.context_processor
     def inject_user_roles():
-        from flask import g
         user = getattr(g, "user", None)
         return {
             "user_roles": user.get("roles") if user else [],

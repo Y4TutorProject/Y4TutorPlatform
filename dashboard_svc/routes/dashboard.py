@@ -32,3 +32,15 @@ def dashboard():
     if manages_college:
         return render_admin_dashboard(user, manages_college)
     return redirect("/account")
+
+
+# temporary user data check
+@bp.get("/check-user")
+@login_required
+def check_user():
+    user = g.user
+    return {
+        "username_completed": user.get("username_completed"),
+        "roles": user.get("roles"),
+        "active_role": user.get("active_role"),
+    }

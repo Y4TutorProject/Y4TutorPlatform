@@ -11,11 +11,23 @@ from .credentials import normalize_username
 auth = Blueprint("auth", __name__)
 
 def current_role():
-    roles = {role.value for role in current_user.roles}
-    selected = session.get("active_role")
-    if selected in roles:
+    """Get the current active role for the authenticated user.
+
+    Returns:
+        Role | None: The current active role for the authenticated user, or None if no role is selected or available.
+    """
+    ROLE_PRIORITY = [Role.COLLEGE_ADMIN, Role.TUTOR, Role.STUDENT]
+    roles = [role.value for role in current_user.roles]
+    try:
+        selected = Role(session.get("active_role"))
+    except ValueError:
+        selected = None
+    if selected and selected.value in roles:
         return selected
-    return Role.STUDENT.value if Role.STUDENT.value in roles else None
+    for role in ROLE_PRIORITY:
+        if role.value in roles:
+            return role
+    return next((role for role in ROLE_PRIORITY if role.value in roles), None)
 
 def json_body():
     """Parse the request body as a JSON object.
@@ -66,7 +78,7 @@ def login():
     session.clear()
     login_user(user, remember=False)
     session.permanent = True
-    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role())
+    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role().value if current_role() else None)
 
 
 @auth.post("/auth/logout")
@@ -174,7 +186,23 @@ def set_preferences():
     if user is None:
         return jsonify(error="User no longer exists."), 404
     return jsonify(user=user.to_public_dict())
-
+@auth.post("/users/me/teaching_preferences")
+@login_required
+def set_teaching_preferences():
+    """Save the signed-in user's four teaching preference ratings and complete preference onboarding."""
+    try:
+        data = json_body()
+        preferences = data.get("preferences")
+        if not isinstance(preferences, dict) or set(preferences) != {pref.value for pref in LearningTeachingStyles}:
+            raise ValueError("Provide a score for each of the four teaching preferences.")
+        user = current_app.extensions["users_service"].set_teaching_preferences(
+            current_user.id, preferences,
+        )
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if user is None:
+        return jsonify(error="User no longer exists."), 404
+    return jsonify(user=user.to_public_dict())
 
 @auth.post("/users/me/college")
 @login_required

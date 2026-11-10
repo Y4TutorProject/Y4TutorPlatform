@@ -456,7 +456,11 @@ def test_view_other_users_profile_in_same_college(app, client, signup):
     assert response.status_code == 200
     profile = response.json["user"]
     assert profile["id"] == tutor["id"] and profile["username"] == "tutor_one"
-    assert set(profile) == {"id", "username", "college_id", "roles", "preferences"}
+    assert set(profile) == {
+        "id", "username", "college_id", "roles", "preferences",
+        "teaching_preferences", "teaching_preferences_completed",
+    }
+    assert profile["teaching_preferences_completed"] is False
 
 
 def test_view_user_profile_hides_unknown_inactive_and_other_college(app, client, signup):

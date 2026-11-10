@@ -1072,7 +1072,17 @@ components:
             type: integer
             minimum: 0
             maximum: 10
-      required: [id, username, college_id, roles, preferences]
+        teaching_preferences:
+          type: object
+          description: Teaching preference scores from 0 to 10.
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 10
+        teaching_preferences_completed:
+          type: boolean
+          description: False when the user has not set teaching preferences, so all-zero scores mean unset.
+      required: [id, username, college_id, roles, preferences, teaching_preferences, teaching_preferences_completed]
     UserProfileResponse:
       type: object
       properties:
