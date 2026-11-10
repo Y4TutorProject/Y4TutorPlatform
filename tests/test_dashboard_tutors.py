@@ -199,3 +199,52 @@ def test_lecturer_dashboard_reads_authorized_teaching_modules(frontend, monkeypa
     response = client.get('/lecturer-dashboard')
     assert response.status_code == 200
     assert 'Networks' in response.text
+
+
+def test_tutor_results_exclude_the_signed_in_user(frontend, monkeypatch):
+    app, client = frontend
+    def upstream(request, timeout):
+        if request.full_url.endswith('/users/me'):
+            return json_response({'user': {'id': 'me', 'email_verified': True}})
+        if request.full_url.startswith('http://lms.test/'):
+            return json_response({'tutor_ids': ['me', 'another-tutor']})
+        assert request.full_url == 'http://users.test/users/another-tutor'
+        return json_response({'user': {'id': 'another-tutor', 'username': 'Tutor'}})
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)
+    response = client.get('/get_tutors?module_id=module-1')
+    assert response.status_code == 200
+    assert [u['id'] for u in response.json['tutors']] == ['another-tutor']
+
+
+def test_message_tutor_rejects_self_chat_before_calling_messaging(frontend, monkeypatch):
+    app, client = frontend
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+        json_response({'user': {'id': 'me', 'username': 'Me', 'email_verified': True}}))
+    def unexpected(*args, **kwargs):
+        pytest.fail('A self-chat must never reach messaging.')
+    monkeypatch.setattr('routes.messaging.messaging_post', unexpected)
+    response = client.get('/getmessages?user_id=me&username=Me')
+    assert response.status_code == 400
+    assert 'You cannot message yourself.' in response.text
+
+
+def test_message_tutor_opens_another_users_chat(frontend, monkeypatch):
+    app, client = frontend
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', lambda *args, **kwargs:
+        json_response({'user': {'id': 'me', 'username': 'Me', 'email_verified': True}}))
+    calls=[]
+    class Reply:
+        ok=True
+        def __init__(self, payload):
+            self.payload=payload
+        def json(self):
+            return self.payload
+    def messaging(client, path, payload):
+        calls.append((path,payload))
+        return Reply({'chatId':'chat-1'} if path=='/mychats/new' else {'chats':[]})
+    monkeypatch.setattr('routes.messaging.messaging_post', messaging)
+    response=client.get('/getmessages?user_id=another-tutor&username=Tutor')
+    assert response.status_code==200
+    assert 'data-open-chat-id="chat-1"' in response.text
+    assert [path for path,_ in calls]==['/mychats/new','/mychats/me']
+    assert calls[0][1]['otherUserId']=='another-tutor'

@@ -1,8 +1,8 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Lecturer Dashboard{% endblock %}
 {% block dashboard_content %}
-<header class="mb-4">
-  <p class="text-primary fw-semibold mb-2">LECTURER DASHBOARD</p>
+<header class="dashboard-heading">
+  <p class="dashboard-eyebrow">LECTURER DASHBOARD</p>
   <h1>Your teaching modules</h1>
   <p class="text-secondary">Welcome, {{ user.username }}. Manage tutor applications for the modules you lecture.</p>
 </header>
@@ -10,7 +10,7 @@
   <div class="card-body p-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h2 id="lecturer-modules-title" class="h4 mb-0">Your modules</h2>
-      <span class="badge text-bg-primary">{{ modules | length }} assigned</span>
+      <span class="dashboard-count">{{ modules | length }} assigned</span>
     </div>
     {% if modules %}
     <div class="row g-3" id="lecturer-modules">
