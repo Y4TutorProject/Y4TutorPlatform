@@ -20,6 +20,10 @@ def render_chat_with(current, other):
     The messaging service expects the current user, a map of the other
     participant's id to username, and the other user's id.
     """
+    if not other.get('id') or not other.get('username'):
+        abort(400, 'A tutor is required.')
+    if other['id'] == current['id']:
+        abort(400, 'You cannot message yourself.')
     request_body = {
         "user": {
             "id": current["id"],

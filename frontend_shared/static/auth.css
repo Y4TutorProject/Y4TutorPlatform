@@ -40,3 +40,23 @@
 #signup-form.admin-signup { display: block; max-width: 408px; margin: auto; }
 #signup-form.admin-signup .auth-submit, #college-form .auth-submit, #resend-form .auth-submit { margin: 32px auto 0; }
 @media (max-width: 767px) { .signup-choices { grid-template-columns: 1fr; } }
+
+/* Shared dashboard navigation follows the neutral card and button theme. */
+.platform-nav { padding: 14px 0; }
+.platform-nav > .container { gap: 16px; }
+.platform-nav .navbar-brand { color: #161616; font-weight: 700; letter-spacing: -.03em; }
+.platform-nav-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.platform-nav-link { display: inline-flex; align-items: center; min-height: 42px; padding: 9px 16px; border-radius: 22px; color: #606060; font-size: .9rem; font-weight: 600; text-decoration: none; transition: background-color .15s, color .15s; }
+.platform-nav-link:hover { background: #f4f4f4; color: #161616; }
+.platform-nav-link[aria-current="page"] { background: #ededed; color: #161616; }
+.platform-role { margin: 0 8px; padding: 5px 10px; border: 1px solid #e2e2e2; border-radius: 20px; background: #fafafa; color: #606060; font-size: .75rem; font-weight: 600; }
+.platform-signout { min-height: 42px; margin-left: 8px; padding: 9px 20px; border: 1px solid #161616; border-radius: 22px; background: #161616; color: #fff; font-size: .9rem; font-weight: 600; transition: background-color .15s, border-color .15s; }
+.platform-signout:hover, .platform-signout:active { background: #333; border-color: #333; color: #fff; }
+.platform-nav-link:focus-visible, .platform-signout:focus-visible { outline: 3px solid #ad97c1; outline-offset: 3px; box-shadow: none; }
+.platform-signout:disabled { background: #e5e5e5; border-color: #e5e5e5; color: #777; }
+@media (max-width: 767px) {
+  .platform-nav > .container { justify-content: flex-start; }
+  .platform-nav-actions { width: 100%; gap: 4px; }
+  .platform-nav-link { padding: 9px 12px; }
+  .platform-signout { margin-left: 4px; padding: 9px 16px; }
+}

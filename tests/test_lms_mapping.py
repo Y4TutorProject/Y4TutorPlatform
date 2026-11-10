@@ -97,7 +97,7 @@ def test_mapping_options_survive_save_restart_and_nightly_sync(integration):
     stored = importer.store.get(path.split('/')[2], 'moodle', payload['base_url'])
     assert stored['modules'][0]['year'] == 4
     # A settings save which omits options preserves the institution's mapping.
-    response = client.put(path + '/connection', json={**payload, 'api_key': ''}, headers=headers)
+    response = client.put(path + '/connection', json={**{k: v for k, v in payload.items() if k != 'provider_options'}, 'api_key': ''}, headers=headers)
     assert response.json['connection']['provider_options']['year_field'] == 'stage'
 
 
@@ -209,3 +209,28 @@ def test_programme_as_moodle_course_with_activity_section_years(integration):
     assert {m['source_id']: m['year'] for m in catalog['modules']} == {'40': 1, '41': 2}
     assert len({m['programme_id'] for m in catalog['modules']}) == 1
     assert len(tutor_modules(catalog, catalog['modules'], catalog['users'][0])) == 2
+
+
+def test_multiple_lecturers_cannot_replace_previous_catalog(integration):
+    _, _, _, importer, payload, path, _, responses = integration
+    importer.import_catalog(path.split('/')[2], payload)
+    previous = importer.store.collection.find_one()
+    responses['core_user_get_users']['users'] += [
+        {'id': 11, 'email': 'one@college.test'}, {'id': 12, 'email': 'two@college.test'}]
+    responses['core_enrol_get_enrolled_users'] = [
+        {'id': 11, 'roles': [{'shortname': 'editingteacher'}]},
+        {'id': 12, 'roles': [{'shortname': 'teacher'}]}]
+    with pytest.raises(LMSImportError, match='only one lecturer'):
+        importer.import_catalog(path.split('/')[2], {**payload, 'provider_options': {'role_source': 'course_roles'}})
+    assert importer.store.collection.find_one() == previous
+
+
+def test_one_lecturer_can_have_multiple_modules(integration):
+    _, _, _, importer, payload, path, _, responses = integration
+    responses['core_user_get_users']['users'].append({'id': 11, 'email': 'lecturer@college.test'})
+    responses['core_course_get_courses'].append({'id': 21, 'fullname': 'Networks', 'shortname': 'NET', 'categoryid': 30})
+    responses['core_enrol_get_enrolled_users'] = [{'id': 11, 'roles': [{'shortname': 'editingteacher'}]}]
+    catalog = importer.import_catalog(path.split('/')[2], {**payload, 'provider_options': {'role_source': 'course_roles'}})
+    from lms_svc.module_participation import module_lecturers
+    assert set(module_lecturers(catalog)) == {m['id'] for m in catalog['modules']}
+    assert set(module_lecturers(catalog).values()) == {'11'}

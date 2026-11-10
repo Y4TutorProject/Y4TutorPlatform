@@ -13,14 +13,17 @@ class Element {
   reportValidity() { return true; }
 }
 
-function screen(admin = false, failure = false, eligible = true, applicationStatus = null, roles = ['student']) {
+function screen(admin = false, failure = false, eligible = true, applicationStatus = null, roles = ['student'], lecturer = false) {
   const nodes = new Map();
   const ids = admin ? ['tutor-applications', 'tutor-review-status', 'tutor-review-list', 'refresh-tutor-applications'] :
     ['module-search-form', 'programme-modules', 'module-search-status', 'open-tutor-applications',
       'close-tutor-applications', 'tutor-application-panel', 'tutor-module-query',
       'student-dashboard-title', 'student-dashboard-intro'];
   for (const id of ids) nodes.set(id, new Element());
-  if (admin) nodes.get('tutor-applications').dataset.collegeId = 'college';
+  if (admin) {
+    nodes.get('tutor-applications').dataset.collegeId = 'college';
+    if (lecturer) nodes.get('tutor-applications').dataset.reviewPath = '/lecturers/me/tutor-applications';
+  }
   else {
     nodes.get('module-search-form').elements = { q: { value: '' } };
     nodes.get('open-tutor-applications').hidden = true;
@@ -143,4 +146,15 @@ test('Students with only existing applications or tutor memberships have no appl
     assert.equal(nodes.get('open-tutor-applications').hidden, true);
     assert.equal(nodes.get('programme-modules').children[0].children.some(child => child.tag === 'form'), false);
   }
+});
+
+
+test('Lecturer reviews use the current-user endpoint with CSRF', async () => {
+  const { nodes, calls } = screen(true, false, true, null, [], true);
+  await tick();
+  const row = nodes.get('tutor-review-list').children[0];
+  await row.children[2].events.click();
+  const call = calls.find(call => call.url.endsWith('/review'));
+  assert.equal(call.url, '/api/lms/lecturers/me/tutor-applications/application/review');
+  assert.equal(call.options.headers['X-CSRFToken'], 'token');
 });

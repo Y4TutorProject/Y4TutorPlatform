@@ -1,6 +1,6 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Student Dashboard{% endblock %}
-{% block body_class %}student-dashboard-page{% endblock %}
+{% block body_class %}student-dashboard-page dashboard-page{% endblock %}
 {% block page %}student-dashboard{% endblock %}
 {% block head %}
 {{ super() }}
@@ -23,7 +23,7 @@
         <h2 id="tutor-application-title" class="h4 mb-0">Applicable modules</h2>
         <button id="close-tutor-applications" type="button" class="btn btn-outline-secondary">Close</button>
       </div>
-      <p>Choose a module from a previous year of your programme and enter your grade. Your college administrator will review your application.</p>
+      <p>Choose a module from a previous year of your programme and enter your grade. Your module lecturer will review your application.</p>
       <form id="module-search-form" class="d-flex gap-2" role="search">
         <label for="tutor-module-query" class="visually-hidden">Search applicable modules</label>
         <input id="tutor-module-query" name="q" type="search" maxlength="200" class="form-control" placeholder="Search applicable modules">

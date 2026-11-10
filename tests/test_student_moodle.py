@@ -177,29 +177,71 @@ def test_tutor_application_requires_programme_membership_and_csrf(programme):
     assert client.get('/students/me/modules?q=net2').json['modules'][0]['application_status'] == 'pending'
 
 
+def assign_lecturer(programme, source_id='11', email='lecturer@college.test', modules=('21',)):
+    client, users, importer, college_id, payload, catalog, account = programme
+    catalog['users'] = [p for p in catalog['users'] if p['source_id'] != source_id]
+    catalog['users'].append({'source_id': source_id, 'email': email, 'suspended': False})
+    catalog['enrolments'] += [{'user_source_id': source_id, 'course_source_id': module, 'roles': ['lecturer']}
+                              for module in modules]
+    importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
+
+
+def become_lecturer(programme):
+    client, users, _, _, _, _, account = programme
+    users.extensions['users_dao'].collection.update_one({'id': account['id']}, {'$set': {
+        'id': account['id'], 'email': 'lecturer@college.test', 'roles': ['student']}})
+
+
 @pytest.mark.parametrize('decision', ['approved', 'rejected'])
-def test_only_owning_admin_can_review_and_approval_grants_module_role(programme, decision):
+def test_only_module_lecturer_can_review_and_approval_grants_module_role(programme, decision):
     client, users, _, college_id, _, _, account = programme
     module = next(m for m in client.get('/students/me/modules').json['modules'] if m['source_id'] == '21')
     application = student_post(client, f"/students/me/modules/{module['id']}/tutor-application", {'grade': 85}).json['application']
-    base = f"/college/{college_id}/tutor-applications"
+    assign_lecturer(programme)
+    base = '/lecturers/me/tutor-applications'
     path = f"{base}/{application['id']}/review"
     assert student_post(client, path, {'decision': decision}).status_code == 403
+    # Administrators cannot bypass the module's lecturer.
     users.extensions['users_dao'].collection.update_one({'id': account['id']}, {'$set': {'roles': ['college_admin']}})
-    headers = client.application.extensions['student_test_headers']
-    assert len(client.get(base, headers=headers).json['applications']) == 1
+    assert student_post(client, f"/college/{college_id}/tutor-applications/{application['id']}/review", {'decision': decision}).status_code == 403
+    become_lecturer(programme)
+    # Use a separate applicant identity so self approval cannot pass.
+    db = client.application.extensions['lms_database']
+    db.tutor_applications.update_one({'_id': application['id']}, {'$set': {'user_id': 'applicant'}})
+    db.module_memberships.update_many({'user_id': account['id']}, {'$set': {'user_id': 'applicant'}})
+    assert len(client.get(base).json['applications']) == 1
     assert client.post(path, json={'decision': decision}).status_code == 400
     assert student_post(client, path, {'decision': decision}).status_code == 200
     assert student_post(client, path, {'decision': decision}).status_code == 200
     opposite = 'rejected' if decision == 'approved' else 'approved'
     assert student_post(client, path, {'decision': opposite}).status_code == 409
-    membership = client.application.extensions['lms_database'].module_memberships.find_one({'module_id': module['id']})
-    assert bool(membership and 'tutor' in membership['roles']) is (decision == 'approved')
-    participation = client.application.extensions['module_participation']
-    assert participation.tutors_for_module(college_id, module['id']) == (
-        [account['id']] if decision == 'approved' else [])
-    assert users.extensions['users_dao'].get_user(account['id']).roles[0].value == 'college_admin'
-    assert client.get(base, headers=headers).json['applications'] == []
+    assert client.application.extensions['module_participation'].tutors_for_module(college_id, module['id']) == (
+        ['applicant'] if decision == 'approved' else [])
+    assert db.tutor_applications.find_one()['reviewed_by'] == account['id']
+    assert client.get(base).json['applications'] == []
+
+
+@pytest.mark.parametrize('case', ['wrong_module', 'removed', 'suspended', 'ambiguous', 'self'])
+def test_lecturer_cannot_review_without_current_unique_assignment(programme, case):
+    client, users, importer, college_id, payload, catalog, account = programme
+    module = client.get('/students/me/modules').json['modules'][0]
+    application = student_post(client, f"/students/me/modules/{module['id']}/tutor-application", {'grade': 85}).json['application']
+    assign_lecturer(programme, modules=('20',) if case == 'wrong_module' else ('21',))
+    become_lecturer(programme)
+    if case != 'self':
+        client.application.extensions['lms_database'].tutor_applications.update_one(
+            {'_id': application['id']}, {'$set': {'user_id': 'applicant'}})
+    if case == 'removed':
+        catalog['enrolments'] = [e for e in catalog['enrolments'] if e['user_source_id'] != '11']
+    if case == 'suspended':
+        catalog['users'][-1]['suspended'] = True
+        catalog['enrolments'] = [e for e in catalog['enrolments'] if e['user_source_id'] != '11']
+    if case == 'ambiguous':
+        catalog['users'].append({'source_id': '12', 'email': 'lecturer@college.test'})
+    importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
+    response = student_post(client, f"/lecturers/me/tutor-applications/{application['id']}/review", {'decision': 'rejected'})
+    assert response.status_code == 403
+    assert client.application.extensions['lms_database'].tutor_applications.find_one()['status'] == 'pending'
 
 
 def test_other_college_admin_cannot_review_application(programme):
@@ -292,13 +334,17 @@ def test_previous_year_enrolment_does_not_block_tutoring(year_restricted):
     assert {m['source_id'] for m in modules if m['can_apply_to_tutor']} == {'21', '23', '24'}
 
 
-def test_admin_cannot_approve_an_application_that_is_no_longer_eligible(year_restricted):
+def test_lecturer_cannot_approve_an_application_that_is_no_longer_eligible(year_restricted):
     client, users, importer, college_id, payload, catalog, account = year_restricted
     module = next(m for m in client.get('/students/me/modules').json['modules'] if m['source_id'] == '21')
     application = student_post(client, f"/students/me/modules/{module['id']}/tutor-application", {'grade': 85}).json['application']
-    catalog['enrolments'] = [{'user_source_id': '10', 'course_source_id': '23'}]
+    assign_lecturer(year_restricted)
+    catalog['enrolments'] = [e for e in catalog['enrolments'] if e['user_source_id'] != '10'] + [{'user_source_id': '10', 'course_source_id': '23'}]
     importer.store.save(college_id, 'moodle', payload['base_url'], catalog)
-    users.extensions['users_dao'].collection.update_one({'id': account['id']}, {'$set': {'roles': ['college_admin']}})
+    become_lecturer(year_restricted)
+    db = client.application.extensions['lms_database']
+    db.tutor_applications.update_one({'_id': application['id']}, {'$set': {'user_id': 'applicant'}})
+    db.module_memberships.update_many({'user_id': account['id']}, {'$set': {'user_id': 'applicant'}})
     response = student_post(client, f"/college/{college_id}/tutor-applications/{application['id']}/review", {'decision': 'approved'})
     assert response.status_code == 409
     assert client.application.extensions['lms_database'].module_memberships.count_documents({'roles': 'tutor'}) == 0
@@ -324,3 +370,20 @@ def test_explicit_profile_year_limits_search_and_direct_applications(year_restri
     full = importer.store.get(college_id, 'moodle', payload['base_url'])
     same_year = next(m for m in full['modules'] if m['source_id'] == '21')
     assert student_post(client, f"/students/me/modules/{same_year['id']}/tutor-application", {'grade': 90}).status_code == 403
+
+
+def test_lecturer_modules_are_scoped_and_do_not_grant_student_enrolment(programme):
+    client, _, _, _, _, _, _ = programme
+    assign_lecturer(programme, modules=('20', '21'))
+    become_lecturer(programme)
+    response = client.get('/lecturers/me/modules')
+    assert response.status_code == 200
+    assert {m['source_id'] for m in response.json['modules']} == {'20', '21'}
+    profile = client.get('/students/me').json
+    assert profile['modules'] == []
+    assert {m['source_id'] for m in profile['lecturer_modules']} == {'20', '21'}
+
+
+def test_student_cannot_open_lecturer_module_endpoint(programme):
+    client, *_ = programme
+    assert client.get('/lecturers/me/modules').status_code == 403

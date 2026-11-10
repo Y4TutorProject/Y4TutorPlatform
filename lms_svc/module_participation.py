@@ -200,3 +200,15 @@ def tutor_modules(catalog, enrolled_modules, student_profile=None):
         if year is not None and year < current_years.get(programme_id, 0):
             eligible.append(module)
     return eligible
+
+
+def module_lecturers(catalog):
+    """Return only modules with one uniquely identified, active lecturer."""
+    candidates = {}
+    for profile in catalog['users']:
+        if profile.get('suspended'):
+            continue
+        for module_id, roles in enrolment_roles(catalog, profile['source_id']).items():
+            if 'lecturer' in roles:
+                candidates.setdefault(module_id, set()).add(profile['source_id'])
+    return {module_id: next(iter(people)) for module_id, people in candidates.items() if len(people) == 1}

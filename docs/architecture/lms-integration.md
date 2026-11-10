@@ -204,20 +204,53 @@ previous-year modules that remain on their Moodle enrolment record. The highest 
 programme determines the current year. The mapper must supply a numeric academic year; unknown years do not
 grant eligibility. Moodle year aliases and field sources are configurable. Year 1 students cannot apply. Search only returns eligible previous-year programme
 modules, each with `can_apply_to_tutor` set to true. Ineligible modules are omitted
-from both the API results and the dashboard list. Admin approval
+from both the API results and the dashboard list. Lecturer approval
 rechecks current enrolments and eligibility before granting the Tutor role. Repeated
 submissions return the same application; applying does not grant Tutor access.
 
-The college administrator reviews pending applications on their dashboard:
+Lecturers review applications at `/tutor-applications`:
 
-- `GET /api/lms/college/<college_id>/tutor-applications` lists pending applications.
-- `POST /api/lms/college/<college_id>/tutor-applications/<id>/review` accepts
-  `{"decision": "approved"}` or `{"decision": "rejected"}`.
+- `GET /api/lms/lecturers/me/tutor-applications` lists pending applications for their modules.
+- `POST /api/lms/lecturers/me/tutor-applications/<id>/review` accepts
+  `{"decision": "approved"}` or `{"decision": "rejected"}` with a session and CSRF token.
 
-Both admin endpoints verify college ownership and require a session and CSRF
-token. Approval records `tutor` on that module membership and retains an existing
-`student` role. A repeated identical decision is safe; a conflicting decision is
-rejected. Applications remain stored with the reviewer and review time.
+The verified account email must match exactly one active imported Moodle profile.
+Only the module's single lecturer can approve or reject its applications. The
+assignment is checked against the current imported catalogue on every request;
+suspended, removed, ambiguous and self-reviewing lecturers cannot review.
+College administrators retain approval access for manually managed modules only.
+The existing `/college/<college_id>/tutor-applications` endpoints use the same
+module permission checks. Approval records `tutor` on that module membership,
+retains an existing `student` role, and records the reviewer and review time.
+Repeated identical decisions are safe; conflicting decisions are rejected.
+
+Moodle connections now default to **Moodle course role shortnames** (`course_roles`),
+with `editingteacher` and `teacher` mapped to Lecturer. Existing connections using
+legacy `enrolments` must switch to `course_roles` and synchronize. The Moodle
+web service needs `core_enrol_get_enrolled_users`. Multiple lecturers for a module
+abort the import and preserve the previous catalogue. Modules with no active
+lecturer have no reviewer until their Moodle assignment is fixed and synchronized.
+
+For local development, `Moodle/scripts/seed_lecturers.php` creates synthetic lecturers
+and active manual enrolments for module courses without a lecturer. It preserves
+existing single lecturer assignments, rejects conflicts, and can be rerun safely.
+One synthetic lecturer is shared by all modules in a Moodle category:
+
+```sh
+docker cp Moodle/scripts/seed_lecturers.php moodle-webserver-1:/tmp/seed_lecturers.php
+docker exec --user www-data moodle-webserver-1 php /tmp/seed_lecturers.php --domain=student.testcollege.ie
+```
+
+Use the development college's signup email domain. Synthetic accounts have random
+Moodle passwords; no password is written to the repository. A platform account
+uses its own password and verified matching email. Lecturer permissions come from
+the imported module assignment, independently of the platform's Student/Tutor roles.
 
 See [LMS adapters and configurable mapping](lms-adapters.md) for provider
 interfaces, installation, admin mapping options and role-aware Moodle import.
+
+Lecturer accounts landing on `/dashboard` now see their teaching modules and
+pending tutor applications. `/lecturer-dashboard` provides the same view directly;
+`GET /api/lms/lecturers/me/modules` lists only the current account's authorized
+teaching modules. Lecturer modules are separate from student enrolments and do
+not grant student tutoring eligibility.
