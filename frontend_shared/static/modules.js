@@ -27,15 +27,49 @@ function setupProgrammeModules() {
   if (!form) return;
   const results = document.getElementById("programme-modules");
   const status = document.getElementById("module-search-status");
+  const openButton = document.getElementById("open-tutor-applications");
+  const panel = document.getElementById("tutor-application-panel");
+  if (openButton && panel) {
+    const heading = document.getElementById("student-dashboard-title");
+    const intro = document.getElementById("student-dashboard-intro");
+    const dashboardHeading = heading.textContent;
+    const dashboardIntro = intro.textContent;
+    function closeApplications() {
+      heading.textContent = dashboardHeading;
+      intro.textContent = dashboardIntro;
+      panel.hidden = true;
+      openButton.textContent = "Apply to be a tutor";
+      openButton.setAttribute("aria-expanded", "false");
+      openButton.focus();
+    }
+    openButton.addEventListener("click", () => {
+      if (!panel.hidden) {
+        closeApplications();
+        return;
+      }
+      heading.textContent = "Apply to be a Tutor";
+      intro.textContent = "Share your knowledge. Choose an eligible module below and apply to tutor students in earlier years of your programme.";
+      panel.hidden = false;
+      openButton.textContent = "Close the apply menu";
+      openButton.setAttribute("aria-expanded", "true");
+      document.getElementById("tutor-module-query").focus();
+    });
+    document.getElementById("close-tutor-applications").addEventListener("click", closeApplications);
+  }
   let searchNumber = 0;
   async function search() {
     const number = ++searchNumber;
     status.textContent = "Loading programme modules…";
     try {
-      const { modules } = await moduleRequest("/students/me/modules?q=" + encodeURIComponent(form.elements.q.value));
+      const query = form.elements.q.value;
+      const { modules } = await moduleRequest("/students/me/modules?q=" + encodeURIComponent(query));
       if (number !== searchNumber) return;
       results.replaceChildren();
       const eligibleModules = modules.filter(module => module.can_apply_to_tutor === true);
+      if (openButton && !query) {
+        openButton.hidden = !eligibleModules.some(module =>
+          !module.application_status && !(module.roles || []).includes("tutor"));
+      }
       for (const module of eligibleModules) {
         const item = element("li", "", "list-group-item p-3");
         item.append(element("h3", (module.display_name || module.name) + (module.code ? ` (${(module.display_code || module.code)})` : ""), "h6"));
@@ -86,6 +120,7 @@ function setupProgrammeModules() {
     } catch (error) {
       if (number === searchNumber) {
         results.replaceChildren();
+        if (panel) panel.hidden = false;
         moduleError(status, error);
       }
     }

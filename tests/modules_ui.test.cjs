@@ -8,17 +8,26 @@ class Element {
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   addEventListener(event, callback) { this.events[event] = callback; }
-  setAttribute() {}
+  setAttribute(name, value) { this[name] = value; }
+  focus() { this.focused = true; }
   reportValidity() { return true; }
 }
 
-function screen(admin = false, failure = false, eligible = true) {
+function screen(admin = false, failure = false, eligible = true, applicationStatus = null, roles = ['student']) {
   const nodes = new Map();
   const ids = admin ? ['tutor-applications', 'tutor-review-status', 'tutor-review-list', 'refresh-tutor-applications'] :
-    ['module-search-form', 'programme-modules', 'module-search-status'];
+    ['module-search-form', 'programme-modules', 'module-search-status', 'open-tutor-applications',
+      'close-tutor-applications', 'tutor-application-panel', 'tutor-module-query',
+      'student-dashboard-title', 'student-dashboard-intro'];
   for (const id of ids) nodes.set(id, new Element());
   if (admin) nodes.get('tutor-applications').dataset.collegeId = 'college';
-  else nodes.get('module-search-form').elements = { q: { value: '' } };
+  else {
+    nodes.get('module-search-form').elements = { q: { value: '' } };
+    nodes.get('open-tutor-applications').hidden = true;
+    nodes.get('tutor-application-panel').hidden = true;
+    nodes.get('student-dashboard-title').textContent = 'Find your tutor';
+    nodes.get('student-dashboard-intro').textContent = 'Welcome, student. Select a module to find your tutor.';
+  }
   const calls = [];
   const redirects = [];
   const context = vm.createContext({
@@ -33,7 +42,7 @@ function screen(admin = false, failure = false, eligible = true) {
       if (url.endsWith('/review')) return { application: { status: 'approved' } };
       if (url.endsWith('/tutor-applications')) return { applications: [{ id: 'application', username: '<script>', module_name: 'Databases', grade: 85 }] };
       if (url.endsWith('/tutor-application')) return { application: { status: 'pending' } };
-      return { modules: [{ id: 'module', name: 'Encoded name', display_name: 'Computing & Informatics', roles: ['student'], application_status: null, can_apply_to_tutor: eligible }] };
+      return { modules: [{ id: 'module', name: 'Encoded name', display_name: 'Computing & Informatics', roles, application_status: applicationStatus, can_apply_to_tutor: eligible }] };
     },
   });
   vm.runInContext(fs.readFileSync('frontend_shared/static/modules.js', 'utf8'), context);
@@ -92,4 +101,46 @@ test('Same-year and future-year modules do not offer tutor application forms', a
   await tick();
   assert.equal(nodes.get('programme-modules').children.length, 0);
   assert.match(nodes.get('module-search-status').textContent, /No eligible modules/);
+  assert.equal(nodes.get('open-tutor-applications').hidden, true);
+  assert.equal(nodes.get('tutor-application-panel').hidden, true);
+});
+
+test('Eligible students can open and close the applicable module list', async () => {
+  const { nodes } = screen();
+  await tick();
+  const button = nodes.get('open-tutor-applications');
+  const panel = nodes.get('tutor-application-panel');
+  assert.equal(button.hidden, false);
+  assert.equal(panel.hidden, true);
+  button.events.click();
+  assert.equal(panel.hidden, false);
+  assert.equal(nodes.get('student-dashboard-title').textContent, 'Apply to be a Tutor');
+  assert.match(nodes.get('student-dashboard-intro').textContent, /Choose an eligible module/);
+  assert.equal(button['aria-expanded'], 'true');
+  assert.equal(button.textContent, 'Close the apply menu');
+  assert.equal(nodes.get('tutor-module-query').focused, true);
+  assert.equal(nodes.get('programme-modules').children.length, 1);
+  nodes.get('close-tutor-applications').events.click();
+  assert.equal(panel.hidden, true);
+  assert.equal(nodes.get('student-dashboard-title').textContent, 'Find your tutor');
+  assert.equal(nodes.get('student-dashboard-intro').textContent, 'Welcome, student. Select a module to find your tutor.');
+  assert.equal(button['aria-expanded'], 'false');
+  assert.equal(button.focused, true);
+  assert.equal(button.textContent, 'Apply to be a tutor');
+  button.events.click();
+  assert.equal(panel.hidden, false);
+  button.events.click();
+  assert.equal(panel.hidden, true);
+  assert.equal(button.textContent, 'Apply to be a tutor');
+  assert.equal(button['aria-expanded'], 'false');
+  assert.equal(nodes.get('student-dashboard-title').textContent, 'Find your tutor');
+});
+
+test('Students with only existing applications or tutor memberships have no apply button', async () => {
+  for (const [status, roles] of [['pending', ['student']], ['approved', ['tutor']], [null, ['tutor']]]) {
+    const { nodes } = screen(false, false, true, status, roles);
+    await tick();
+    assert.equal(nodes.get('open-tutor-applications').hidden, true);
+    assert.equal(nodes.get('programme-modules').children[0].children.some(child => child.tag === 'form'), false);
+  }
 });
