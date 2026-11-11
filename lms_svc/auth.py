@@ -5,6 +5,9 @@ from http.cookies import SimpleCookie
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from flask import current_app
+
+
 
 class AuthenticationError(Exception):
     def __init__(self, message, status):
@@ -149,3 +152,14 @@ class UsersAuthClient(LMSAuthenticationClient):
             raise AuthenticationError("Authentication required.", 401)
         return user
 
+    def update_role(self, session_cookie, user_agent, csrf_token, role, userid):
+        """Update the role of the specified user after verifying the session and CSRF token.
+
+        Raises an AuthenticationError if the session or CSRF token is invalid.
+        Raises a ValueError if the role change is not permitted.
+        
+        """
+        self.verify(session_cookie, user_agent, csrf_token)
+        return current_app.extensions["users_service"].update_role(userid, role)
+
+        

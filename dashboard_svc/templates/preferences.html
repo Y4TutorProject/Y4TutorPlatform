@@ -22,7 +22,7 @@
 {% block title %}{{ kind | capitalize }} preferences{% endblock %}
 {% block page %}preferences{% endblock %}
 {% block content %}
-  <h1 id="form-title" class="h4">{{ 'Set up your learning preferences' if onboarding else 'Edit your learning preferences' }}</h1>
+  <h1 id="form-title" class="h4">{{ 'Set up your ' ~ kind ~ ' preferences' if onboarding else 'Edit your ' ~ kind ~ ' preferences' }}</h1>
   <p id="preferences-help">Rate each approach from 0 (no preference) to 10 (strong preference). You can give approaches the same score and change these later in your account.</p>
   <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   <form id="preferences-form" aria-describedby="preferences-help" data-kind="{{ kind }}" data-onboarding="{{ 'true' if onboarding else 'false' }}">

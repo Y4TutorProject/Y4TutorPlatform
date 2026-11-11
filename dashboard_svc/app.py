@@ -5,7 +5,12 @@ from flask import Flask, g
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from routes import register_routes
+from routes.roles import resolve_active_role, switchable_roles
 from users_client import create_opener
+import logging
+from flask_wtf.csrf import CSRFProtect
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(config=None):
@@ -20,19 +25,26 @@ def create_app(config=None):
     app.config["LMS_API_URL"] = os.getenv("LMS_API_URL", "http://gateway/api/lms")
     app.config["MESSAGING_API_URL"] = os.getenv("MESSAGING_API_URL", "http://gateway/api/messaging")
     app.config["DASHBOARD_SHARED_SECRET"] = os.getenv("DASHBOARD_SHARED_SECRET")
+    app.config["SECRET_KEY"] = os.getenv("SESSION_SECRET")
     if config:
         app.config.update(config)
     app.extensions["users_opener"] = create_opener()
     app.config["CURRENT_ROLE"] = None
+    CSRFProtect(app)
+
 
     @app.context_processor
-    def inject_user_roles():
+    def inject_roles():
         user = getattr(g, "user", None)
-        userid = user.get("id") if user else None
+        if not user:
+            return {"roles": [], "switchable_roles": [], "active_role": None, "can_switch": False}
+        available = switchable_roles(user)
+
         return {
-            "user_roles": user.get("roles") if user else [],
-            "current_role": user.get("active_role") if user else None,
-            "userid": userid,
+            "roles": user.get("roles") or [],
+            "switchable_roles": available,
+            "active_role": resolve_active_role(user),
+            "can_switch": len(available) > 1,
         }
 
     register_routes(app)
