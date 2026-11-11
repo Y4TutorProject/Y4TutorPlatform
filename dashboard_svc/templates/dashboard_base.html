@@ -8,7 +8,8 @@
 <nav class="navbar bg-white border-bottom platform-nav" aria-label="Main navigation">
   <div class="container">
     <a class="navbar-brand" href="/dashboard">TutorPlatform</a>
-    <div class="platform-nav-actions">
+    <button type="button" class="platform-menu-toggle" aria-expanded="false" aria-controls="platform-nav-actions">Menu</button>
+    <div class="platform-nav-actions" id="platform-nav-actions">
       <a class="platform-nav-link" href="{{ '/admin-dashboard' if can_manage_college and not is_lecturer else '/dashboard' }}" {% if request.path in ('/dashboard', '/lecturer-dashboard', '/admin-dashboard') %}aria-current="page"{% endif %}>Dashboard</a>
       <a class="platform-nav-link" href="/messages" {% if request.path == '/messages' %}aria-current="page"{% endif %}>Messages</a>
       <a class="platform-nav-link" href="/account" {% if request.path in ('/account', '/preferences') %}aria-current="page"{% endif %}>My account</a>

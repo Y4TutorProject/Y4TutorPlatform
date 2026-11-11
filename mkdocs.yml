@@ -1,7 +1,7 @@
 site_name: Tutoring App
 site_description: Architecture and API documentation for the Tutoring App Platform.
-repo_url: https://github.com/nfinnegan02/Y4TutorPlatform
-repo_name: nfinnegan02/Y4TutorPlatform
+repo_url: https://github.com/Y4TutorProject/Y4TutorPlatform
+repo_name: Y4TutorProject/Y4TutorPlatform
 
 docs_dir: docs
 
@@ -13,6 +13,8 @@ nav:
   - API:
       - Overview: api/README.md
       - OpenAPI specification: api/openapi.yaml
+  - Setup:
+      - Desktop and mobile PWA: setup/pwa.md
   - Architecture:
       - Colleges: architecture/colleges.md
       - Manual courses and modules: architecture/manual-academics.md
@@ -22,6 +24,7 @@ nav:
       - Messaging: architecture/messaging.md
       - Notifications: architecture/notifications.md
       - Users and registration: architecture/users.md
+  - Decision log: decision-log.md
 
 plugins:
   - search

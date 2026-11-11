@@ -13,6 +13,7 @@
   <header class="messages-heading">
     <h1>Messages</h1>
   </header>
+  <p id="chat-status" role="status" hidden></p>
   <div class="messages-layout">
     <aside class="messages-sidebar" aria-labelledby="conversations-title">
       <div class="messages-sidebar-heading">
@@ -36,6 +37,7 @@
     </aside>
     <section class="messages-conversation" aria-labelledby="chat-header">
       <header class="messages-chat-heading">
+        <button type="button" id="chat-back" class="messages-back">Back</button>
         <div class="messages-avatar" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-4 3V11.5A7.5 7.5 0 0 1 9.5 4h3A7.5 7.5 0 0 1 20 11.5Z"/></svg>
         </div>

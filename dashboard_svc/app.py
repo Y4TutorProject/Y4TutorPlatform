@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, abort, send_from_directory
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from routes import register_routes
@@ -33,6 +33,23 @@ def create_app(config=None):
             "user_roles": user.get("roles") if user else [],
             "current_role": user.get("active_role") if user else None,
         }
+
+    @app.get("/sw.js")
+    def service_worker():
+        response = send_from_directory(shared / "static" / "pwa", "sw.js")
+        response.headers["Service-Worker-Allowed"] = "/"
+        return response
+
+    @app.get("/manifest.webmanifest")
+    def web_manifest():
+        return send_from_directory(shared / "static" / "pwa", "manifest.webmanifest",
+                                   mimetype="application/manifest+json")
+
+    @app.get("/pwa/<name>")
+    def pwa_asset(name):
+        if name not in {"pwa.js", "mobile.css", "offline.html", "icon-180.png", "icon-192.png", "icon-512.png"}:
+            abort(404)
+        return send_from_directory(shared / "static" / "pwa", name)
 
     register_routes(app)
 
