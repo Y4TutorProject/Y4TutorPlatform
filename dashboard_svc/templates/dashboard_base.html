@@ -12,6 +12,17 @@
       <a class="platform-nav-link" href="{{ '/admin-dashboard' if can_manage_college and not is_lecturer else '/dashboard' }}" {% if request.path in ('/dashboard', '/lecturer-dashboard', '/admin-dashboard') %}aria-current="page"{% endif %}>Dashboard</a>
       <a class="platform-nav-link" href="/messages" {% if request.path == '/messages' %}aria-current="page"{% endif %}>Messages</a>
       <a class="platform-nav-link" href="/account" {% if request.path in ('/account', '/preferences') %}aria-current="page"{% endif %}>My account</a>
+     {% if can_switch %}
+  {% set other_roles = switchable_roles | reject('equalto', active_role) | list %}
+  {% for role in other_roles %}
+  <form method="post" action="/dashboard/switch/{{ role }}" class="d-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn platform-nav-link">
+      Switch to {{ role }} role
+    </button>
+  </form>
+  {% endfor %}
+{% endif %}
       {% if is_lecturer %}
       <span class="platform-role">Lecturer</span>
       {% endif %}

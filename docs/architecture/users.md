@@ -59,6 +59,7 @@ Users (`/api/users`):
 - `POST /auth/verify` — session and CSRF check used by the college service.
 - `GET /users/me`
 - `POST /users/me/preferences` — saves all four learning preference ratings.
+- `POST /users/me/teaching_preferences` - saves all four teaching preference rating
 - `POST /users/me/college` — links an administrator to their own college.
 
 POSTs need `X-CSRFToken` from the receiving service and its session cookie.

@@ -45,3 +45,4 @@ Routes live in `routes/`, one Flask blueprint per concern. `routes/__init__.py` 
 - `admin.py` - college admin view. It defines no routes; `dashboard.py` calls it.
 - `messaging.py` - `/messages` (chat list) and `/getmessages` (opens or creates a chat with another user).
     
+All javascript are stored in [frontend_shared/static/js](../frontend_shared/static/js).

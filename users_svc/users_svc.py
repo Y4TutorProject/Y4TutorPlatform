@@ -2,6 +2,8 @@ import secrets
 
 from werkzeug.security import check_password_hash
 
+from users_svc.Objects.Role import Role
+
 from .credentials import hash_password, normalize_email
 from .interfaces.users_interface import UsersInterface
 from .Objects.UserStatus import UserStatus
@@ -106,3 +108,14 @@ class UsersService(UsersInterface):
             user.status = UserStatus(new_status)
             self.dao.update_user(user)
         return user
+
+    def update_role(self, user_uuid, role):
+        """Update the role of the specified user."""
+        user = self.dao.get_user(user_uuid)
+        if user is None:
+            return None
+        if role not in [r.value for r in Role]:
+            raise ValueError("Invalid role.")
+        if role not in user.roles:
+            user.roles.append(role)
+        return user if self.dao.update_user(user) else None
