@@ -20,3 +20,4 @@ notification_svc/notification_db_data/
 /.coverage
 /coverage.xml
 /output/
+.DS_Store
