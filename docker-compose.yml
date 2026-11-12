@@ -297,4 +297,4 @@ services:
     volumes:
       - .:/docs
     command: >
-      sh -c "pip install mkdocs && mkdocs serve --dev-addr=0.0.0.0:8000"
+      sh -c "pip install -r requirements-docs.txt && mkdocs serve --dev-addr=0.0.0.0:8000"
