@@ -1,163 +1,123 @@
 # Decision log
 
-Retrospective entries based on Nathan’s work. Rationale and alternatives are reconstructed for review.
+These entries record implemented decisions. Reasons and alternatives were written up afterwards.
 
-## 001 — Require verified, college-aware registration
+## 001 - Registration and email verification
 
-- **Date:** 2026-11-02
-- **Status:** Implemented
+**Date:** 2026-11-02
 
-**Decision:** Keep signup in the registration service and login/session management in the users service. Require email verification before sign-in; students select an active college and use its configured student email domain.
+**Decision:** Keep signup in the registration service and login in the users service. Students select a college and verify an email matching its student domain.
 
-**Rationale:** Separate account creation from authentication and establish a verified college identity before granting access.
+**Why:** This checks access to the college email address before allowing sign-in.
 
-**Alternatives:**
+**Other options:** Combine signup and login in one service, or use college single sign-on.
 
-- **Combined registration and authentication service:** fewer service boundaries, but couples signup changes to login and session handling.
-- **College single sign-on:** delegates identity verification to the institution, but requires integration with each supported identity provider.
+**Trade-off:** Registration depends on email delivery. College single sign-on would require a connection to each institution.
 
-**Consequences:** Registration needs email delivery and a verification flow. College administrator onboarding includes registering and linking a college after verification.
+## 002 - Run Moodle imports in the background
 
-## 002 — Import LMS data through a separate service and worker
+**Date:** 2026-11-02
 
-- **Date:** 2026-11-02
-- **Status:** Implemented
+**Decision:** Use a separate LMS service, worker and database. Import on a schedule, encrypt saved API keys and keep the last successful import after a failure.
 
-**Decision:** Use a dedicated LMS service, database and background worker for Moodle imports. Schedule synchronization, retain the last successful import after failure, and store connection credentials encrypted.
+**Why:** Dashboard requests can use saved data when Moodle is slow or unavailable.
 
-**Rationale:** Isolate LMS failures and avoid requiring live Moodle availability for every page request.
+**Other options:** Fetch Moodle data on each page request, or run imports inside the web service.
 
-**Alternatives:**
+**Trade-off:** Data can be out of date between syncs. The worker, database and encryption key need maintaining.
 
-- **Fetch Moodle data on each request:** fresher data, but page availability and response time depend on Moodle.
-- **Run imports within the web service:** simpler deployment, but long-running imports share resources with user requests.
+## 003 - Check permissions before rendering settings
 
-**Consequences:** Imported data can lag behind the source. Deployment must manage another service, worker, database and encryption key.
+**Date:** 2026-11-03
 
-## 003 — Enforce privileged settings access on the server
+**Decision:** Check the session, role and college on the server before rendering college settings. Check permissions again at the API.
 
-- **Date:** 2026-11-03
-- **Status:** Implemented
+**Why:** Hiding a form with CSS or JavaScript leaves its contents in the page source.
 
-**Decision:** Verify the account session on the server and conditionally render college management settings using verified role and college information. Enforce authorization at the API boundary as well.
+**Other options:** Render all settings and rely on API checks, or put permission checks in the gateway.
 
-**Rationale:** Hiding a form in HTML or JavaScript does not prevent a visitor from inspecting it or calling its endpoints.
+**Trade-off:** Rendering depends on a successful session check. Gateway checks would also need college ownership information.
 
-**Alternatives:**
+## 004 - Move account pages into the dashboard service
 
-- **API authorization with client-rendered settings:** protects operations, but sends the generic settings interface to the browser.
-- **Centralize authorization in the gateway:** reduces repeated checks, but the gateway needs resource and college-ownership context.
+**Date:** 2026-11-09
 
-**Consequences:** Unauthorized responses omit privileged settings. Authentication-service failures require an explicit failure response rather than trusting browser-supplied identity.
+**Decision:** Move account and preference pages to the dashboard service. Keep sign-in in the users frontend.
 
-## 004 — Move authenticated account and dashboard pages into the dashboard service
+**Why:** Account pages share navigation and user flows with the dashboard.
 
-- **Date:** 2026-11-09
-- **Status:** Implemented
+**Other options:** Keep account pages in the users frontend, or combine all frontend pages in one service.
 
-**Decision:** Move account, preferences and authenticated dashboard rendering out of the users frontend into the dashboard service. Keep the users frontend focused on sign-in.
+**Trade-off:** Gateway routes need updating, and the frontends need shared styles and scripts.
 
-**Rationale:** Group authenticated application pages in one frontend service instead of spreading account and dashboard rendering across separate services.
+## 005 - Use scores for learning and teaching preferences
 
-**Alternatives:**
+**Date:** 2026-11-09
 
-- **Keep account pages in the users frontend:** avoids moving routes, but splits authenticated application pages between services.
-- **Combine all frontend pages into one service:** simplifies routing and shared assets, but deploys sign-in and dashboard changes together.
+**Decision:** Store visual, auditory, reading/writing and kinesthetic ratings from 0 to 10. Collect them during setup and allow edits from the account page.
 
-**Consequences:** Gateway routes and authenticated service calls must support the dashboard service. Shared frontend assets need to remain consistent across services.
+**Why:** Scores give users a consistent way to express a mixture of preferences.
 
-## 005 — Store editable learning and teaching preference scores
+**Other options:** Use free text, or ask users to choose one category.
 
-- **Date:** 2026-11-09
-- **Status:** Implemented
+**Trade-off:** The server must validate every score. These ratings describe self-reported preferences.
 
-**Decision:** Store numeric ratings from 0 to 10 for visual, auditory, reading/writing and kinesthetic preferences. Collect them during onboarding and allow later edits through the account flow.
+## 006 - Check tutor eligibility for each module
 
-**Rationale:** Represent preferences consistently as structured values that the application can display and use, while allowing users to revise their ratings.
+**Date:** 2026-11-09; updated 2026-11-10
 
-**Alternatives:**
+**Decision:** Let students apply for earlier-year modules in their programme. Lecturers review imported modules; college admins review manually managed modules. Approval grants module tutor membership.
 
-- **Free-text preferences:** more expressive, but harder to validate and compare consistently.
-- **One preferred category per user:** simpler input, but cannot represent mixed preferences or their relative strength.
+**Why:** Tutor access needs a module-specific eligibility check and review.
 
-**Consequences:** The server validates the complete set of scores and tracks onboarding completion. These are self-reported preferences, not a measured assessment of ability.
+**Other options:** Allow self-selection, or send all applications to college admins.
 
-## 006 — Require module-specific tutor eligibility and approval
+**Trade-off:** Missing year or lecturer information can block applications. Eligibility and reviewer permissions need checking again on approval.
 
-- **Date:** 2026-11-09; updated 2026-11-10
-- **Status:** Implemented
+## 007 - Keep Moodle mapping separate from tutoring rules
 
-**Decision:** Allow eligible students to apply for earlier-year modules in their programme, with no eligibility granted when year information is unknown. Require approval before granting module tutor membership. The later lecturer change assigns imported-module reviews to the module’s lecturer; administrators retain review access for manually managed modules.
+**Date:** 2026-11-09
 
-**Rationale:** Keep applications tied to academic progression and module-level review instead of granting tutor access simply because an application was submitted.
+**Decision:** Use provider and mapper interfaces to produce common academic records. Make Moodle hierarchy and role settings configurable.
 
-**Alternatives:**
+**Why:** Colleges organise Moodle differently. Tutoring rules can use programme and year fields supplied by the mapper.
 
-- **Let students self-select tutor modules:** reduces review work, but removes academic progression and approval checks.
-- **Have administrators review every application:** centralizes oversight, but increases their workload and removes module lecturers from the review process.
+**Other options:** Assume one Moodle layout, or add LMS-specific checks throughout the application.
 
-**Consequences:** Eligibility and reviewer permissions must be rechecked on the server. Missing or ambiguous academic and lecturer data can prevent an application or review until the source data is corrected.
+**Trade-off:** Each adapter needs mapping tests and must supply the fields used by eligibility checks.
 
-## 007 — Isolate LMS-specific mappings behind provider interfaces
+## 008 - Allow colleges to enter academic records manually
 
-- **Date:** 2026-11-09
-- **Status:** Implemented
+**Date:** 2026-11-10
 
-**Decision:** Use provider, mapper, transport and storage interfaces around a canonical academic catalogue. Keep Moodle hierarchy and role mapping configurable rather than embedding Moodle category assumptions in tutoring policy.
+**Decision:** Add admin forms for courses, modules and enrolments. Store manual records separately from imports and use both sources for dashboards and tutor lookup.
 
-**Rationale:** Allow institutions with different LMS layouts to supply the same academic concepts without rewriting the core tutoring rules.
+**Why:** Colleges can manage records without an LMS connection, and manual entries survive later syncs.
 
-**Alternatives:**
+**Other options:** Require an LMS connection, or allow direct edits to imported snapshots.
 
-- **Hard-code one Moodle structure:** quicker for the initial institution, but requires code changes for different hierarchies.
-- **Add provider-specific branches throughout the application:** supports more systems initially, but spreads integration logic across tutoring and dashboard code.
+**Trade-off:** Both sources need college ownership checks and consistent relationships. Manual enrolment uses registered accounts.
 
-**Consequences:** Adapters must supply explicit programme relationships and academic years. Provider settings require validation, and each installed adapter needs mapping tests.
+## 009 - Preview CSV files before importing
 
-## 008 — Support manual academic records alongside LMS imports
+**Date:** 2026-11-10
 
-- **Date:** 2026-11-10
-- **Status:** Implemented
+**Decision:** Provide module and user templates, preview files before import and validate again on apply. Save unregistered people as directory entries with pending assignments.
 
-**Decision:** Allow college administrators to create courses and modules and manage enrolments through forms. Store manual records separately from imported snapshots and combine them when building student academic views and tutor lookup.
+**Why:** Admins can check bulk records before saving them. Users still register and verify their own accounts.
 
-**Rationale:** Let a college manage academic data without an LMS connection and retain manually entered records across LMS synchronization.
+**Other options:** Use forms for every record, or import valid rows immediately and report errors afterwards.
 
-**Alternatives:**
+**Trade-off:** The importer needs file limits, line errors and duplicate handling. Interrupted writes may require a preview and retry.
 
-- **Require an LMS integration for every college:** gives one source of academic records, but blocks colleges without a supported LMS.
-- **Edit imported snapshots directly:** uses fewer record types, but changes may be overwritten during synchronization.
+## 010 - Use the same theme across pages
 
-**Consequences:** Both data sources need college-scoped permissions and consistent relationships. Manual enrolment selects existing registered users rather than creating credentials.
+**Date:** 2026-11-10
 
-## 009 — Preview and validate CSV imports before applying them
+**Decision:** Use shared navigation and neutral/lilac styles across dashboards, profiles and messaging.
 
-- **Date:** 2026-11-10
-- **Status:** Implemented
+**Why:** Shared styles keep navigation and controls consistent between pages.
 
-**Decision:** Provide module and user CSV templates, require preview before import in the UI, and revalidate files on apply. Treat unregistered people as directory records with pending assignments rather than creating login credentials.
+**Other options:** Style each page separately, or keep the default Bootstrap appearance.
 
-**Rationale:** Support bulk onboarding while exposing row errors before users apply changes and keeping account verification separate from directory imports.
-
-**Alternatives:**
-
-- **Use forms for every record:** keeps validation local to individual edits, but makes bulk onboarding slow.
-- **Import valid rows immediately and report failures afterwards:** allows partial progress, but makes the result harder to review and recover from.
-
-**Consequences:** Imports need file/row limits, line-numbered errors and repeat-safe record matching. Pending assignments link after verified registration; interrupted per-record writes may require a preview and retry.
-
-## 010 — Share the lilac visual theme across application pages
-
-- **Date:** 2026-11-10
-- **Status:** Implemented
-
-**Decision:** Use shared navigation and stylesheet rules to carry the neutral/lilac design across dashboards, profiles and messaging, while retaining layouts suited to each page.
-
-**Rationale:** Keep the application visually consistent as users move between account, academic and messaging tasks.
-
-**Alternatives:**
-
-- **Style each page independently:** allows local design freedom, but increases duplication and visual inconsistency.
-- **Use Bootstrap defaults throughout:** reduces custom styling, but provides less control over the platform’s appearance.
-
-**Consequences:** Changes to shared styles can affect several roles and pages, so visual checks should cover each major screen.
+**Trade-off:** Shared CSS changes need checking across roles and screens.
