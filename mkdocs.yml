@@ -4,18 +4,20 @@ repo_url: https://github.com/Y4TutorProject/Y4TutorPlatform
 repo_name: Y4TutorProject/Y4TutorPlatform
 
 docs_dir: docs
+site_url: https://Y4TutorProject.github.io/Y4TutorPlatform/
+strict: true
 
 theme:
   name: readthedocs
   navigation_depth: 3
 
 nav:
-  - API:
-      - Overview: api/README.md
-      - OpenAPI specification: api/openapi.yaml
-  - Setup:
+  - Home: index.md
+  - Getting started:
+      - Local development: setup/local-development.md
       - Desktop and mobile PWA: setup/pwa.md
   - Architecture:
+      - System overview: architecture/overview.md
       - Colleges: architecture/colleges.md
       - Manual courses and modules: architecture/manual-academics.md
       - LMS integration: architecture/lms-integration.md
@@ -23,8 +25,18 @@ nav:
       - Matching system: architecture/matching-system.md
       - Messaging: architecture/messaging.md
       - Notifications: architecture/notifications.md
+  - API and services:
+      - API overview: api/README.md
+      - OpenAPI specification: api/openapi.yaml
       - Users and registration: architecture/users.md
-  - Decision log: decision-log.md
+  - Development:
+      - Documentation workflow: development/docs-workflow.md
+      - CI and deployment: development/ci-cd.md
+      - Testing and quality: development/testing.md
+      - Decision log: decision-log.md
+      - Changelog: changelog.md
+  - Operations:
+      - Runbooks: operations/runbooks.md
 
 plugins:
   - search
@@ -34,3 +46,21 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+    absolute_links: warn
+
+extra_css:
+  - assets/docs.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@12.3.0/dist/mermaid.min.js
+  - assets/diagrams.js
