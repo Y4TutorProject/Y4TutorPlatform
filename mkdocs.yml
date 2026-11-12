@@ -18,6 +18,7 @@ nav:
       - Desktop and mobile PWA: setup/pwa.md
   - Architecture:
       - System overview: architecture/overview.md
+      - Dashboard: architecture/dashboard.md
       - Colleges: architecture/colleges.md
       - Manual courses and modules: architecture/manual-academics.md
       - LMS integration: architecture/lms-integration.md
