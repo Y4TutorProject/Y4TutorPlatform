@@ -11,7 +11,7 @@ similar to a student's preference vector.
 4. Results are converted to percentage-style scores, sorted from highest to
    lowest, and returned to the caller.
 
-The preference values currently use a scale from 1 to 10. The higher the score, the higher the prefrence. 
+The preference values currently use a scale from 1 to 10. The higher the score, the higher the prefrence.
 Cosine similarity compares the direction of two vectors rather than their
 absolute size. This makes it suitable for comparing preference patterns.
 

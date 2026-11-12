@@ -17,7 +17,7 @@ Generate a secret with:
 python3 -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
-Open the app at http://localhost:8080 and Mailpit at http://localhost:8025.
+Open the app at <http://localhost:8080> and Mailpit at <http://localhost:8025>.
 Registration sends mail to `mailpit:1025` inside Compose.
 
 ## Signup

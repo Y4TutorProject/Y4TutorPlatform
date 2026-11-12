@@ -269,6 +269,7 @@ def create_app(config=None):
         }
         for member_id in set(chat.members):
             socketio.emit("message", out, to=f"user:{_id(member_id)}")
+        return {"ok": True, "messageId": out["messageId"]}
 
     @socketio.on("typing")
     def handle_typing(payload):
@@ -341,6 +342,11 @@ def create_app(config=None):
     @socketio.on("leave_chat")
     def handle_leave_chat(data):
         return
+
+    @app.after_request
+    def no_cache(response):
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     return app
 
