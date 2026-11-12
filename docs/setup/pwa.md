@@ -1,26 +1,30 @@
 # Desktop website and mobile PWA
 
-TutorPlatform uses the same Flask/Jinja pages for desktop browsers, mobile browsers and the installed app. All roles remain available. It is online-first: live data and writes require a connection. Notifications, background sync and offline user-data storage are not included.
+Thanks to PWA capabilities the TutorPlatform uses the same Flask and Jinja pages on desktop and mobile, mobile allowing users to download the app to their device. Users need an online connection to load data and save changed.
 
 ## Run and deploy
 
-Rebuild the shared frontend consumers and gateway after changing PWA assets:
+After changing the PWA files, rebuild the frontends that use them and the gateway:
 
 ```sh
 docker compose up -d --build --no-deps gateway dashboard_svc users_frontend registration_frontend messaging_svc
 ```
 
-The gateway exposes `/manifest.webmanifest`, `/sw.js` and `/pwa/` through the dashboard service. The worker has `/` scope so it covers all frontend services on the same origin. Keep these public routes accessible without authentication, with correct MIME types, and do not cache `/sw.js` at a reverse proxy/CDN.
+The dashbaord service serves `/manifest.webmanifest, /sw.js` and `/pwa/` through the gateway. The service worker's scope is `/`, so it covers all frontend pages on that origin. These routes must be public and return the correct MIME types.
 
-For production and phone testing, serve the gateway behind a trusted HTTPS reverse proxy on one stable domain, forwarding WebSocket upgrades for `/socket.io/`. Set `PUBLIC_BASE_URL` to that HTTPS origin and keep secure cookies enabled. Plain `http://localhost:8080` works for development on this computer; a phone accessing an ordinary LAN HTTP address does not get the same secure-context exception. No production hostname or certificate is provisioned by this change.
+For production ortesting on a phone, put the gateway behind a HTTPS reverse proxy on a stable domain. Forward WebSocket upgrades for `/socket.io/`, set `PUBLIC_BASE_URL` to the HTTPS origin and keep secure cookies enabled.
+
+You can use `http://localhost:8080` for development on this computer. A phone opening an ordinary HTTP address on the local network does not get the browser's [localhost](http://localhost) security exception. The production domain and certificate need to be configured separately.
 
 ## Install and update
 
-On mobile, use **Install app** where offered. Desktop pages hide the app installation control; installation remains available through the browser’s own menu. On iPhone/iPad, open the browser's Share menu and select **Add to Home Screen**, ensuring it opens as a web app. Installation controls disappear in standalone mode. Browser support and menu wording vary.
+On mobile, select **Install app** when it is available.  On iPhone or iPad, use the browser's Share menu and choose **Add to Home Screen,** making sure it opens as a web app. The button is hidden when the app is already running in standalone mode.
 
-When a new worker is waiting, an update notice asks users to save their work before selecting **Update app**. Other open tabs are not automatically reloaded. Increment `CACHE` in `frontend_shared/static/pwa/sw.js` whenever a cached asset changes; its exact allowlist must include any newly cacheable public files. Never add personalised HTML, APIs, messages, uploaded files or credentials.
+Desktop pages do not show the install button, but users can still install through the browser's own menu. When an update is ready, users see a notice asking them to save their work before selecting **Update app.** Other open tabs are left as they are.
 
-Only public assets are cached. Failed navigations show a generic offline screen with Retry. An installed app needs at least one successful online visit to prepare that fallback. The existing authenticated responses retain `Cache-Control: no-store`.
+Change the `CACHE` version in `frontend_shared/static/pwa/sw.js` whenever a cached file changes. Add new public files to its allowed list if they should be cached. Keep personalised HTML, API responses, messages, uploads and credentails out of that list.
+
+Only public files are cached. If a page cannot load because the connection is down, the app shows an offline page with a retry link. This needs at least one successful online visit to prepare the offline page. Authenticated responses keep `Cache-Control: no-store`
 
 ## Validation
 
@@ -29,6 +33,6 @@ PYTHONPATH=dashboard_svc .venv-auth/bin/python -m pytest tests/test_pwa.py -q
 node --test tests/pwa_worker.test.cjs tests/pwa_controls.test.cjs
 ```
 
-`tests/pwa_browser.cjs` provides optional Playwright smoke checks against the running gateway using an installed Chrome browser. Install Playwright in a separate tooling directory and set `NODE_PATH` to its `node_modules` directory. Set `PWA_TEST_EMAIL` and `PWA_TEST_PASSWORD` to an existing local test account to include signed-in layouts and conversation navigation; the script does not send messages. `PWA_BASE_URL` defaults to `http://localhost:8080`.
+`tests/pwa_browser.cjs` provides optional Playwright smoke checks against the running gateway using an installed Chrome browser. Install Playwright in a seperate tooling directory and set `NODE_PATH` to its `node_modules` directory. Set `PWA_TEST_EMAIL` and `PWA_TEST_PASSWORD` to an existing local test account to include signed-in layouts and conversation navigation; the script does not send messages. `PWA_BASE_URL` defaults to `http://localhost:8080`.
 
-Before production release, check Home Screen installation and launch on physical Android/iPhone devices, phone keyboard behaviour, standalone safe areas, offline retry, and updating while a form contains unsaved changes. Desktop emulation does not establish physical-device compatibility.
+Before release, test on actual Android and iPhone devices. Check installation, launching from the Home Screen,  the phone keyboard, screen edges and safe area, offline retry, and updates while a form has unsaved changes. Desktop emulation alone is not enough for these checks.
