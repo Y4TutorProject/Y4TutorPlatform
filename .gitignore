@@ -12,3 +12,12 @@ notification_svc/notification_db_data/
 /Moodle/moodle
 /Moodle/moodledb
 /Moodle/assets
+
+/.venv-docs
+/.venv-matching
+/site/
+/htmlcov/
+/.coverage
+/coverage.xml
+/output/
+.DS_Store

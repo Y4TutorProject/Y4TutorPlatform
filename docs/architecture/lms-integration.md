@@ -1,121 +1,72 @@
 # College LMS integration
 
-The LMS service imports provider-normalized college data and updates it every night.
-Moodle is the bundled adapter; its academic and role mapping is configurable.
-It has its own API (`lms_svc`), background worker (`lms_worker`) and MongoDB
-database (`lms_db`) for connection credentials, imported profiles and enrolment
-links. The college service owns academic `Course` and `Module` records in
-`college_db`. An LMS failure leaves account sign-in available.
+The LMS service imports college data from Moodle and updates it every night. It runs as an API (`lms_svc`), worker (`lms_worker`) and MongoDB database (`lms_db`). The college service stores courses and modules in `college_db`.
 
-The college administration page (`/admin-dashboard`) includes an **Imported LMS
-data** viewer for the latest successful import. Administrators can browse and
-search courses/categories, modules, users, and enrolments with roles, with 25
-records per page. The view shows import counts, source, and timestamp, and refreshes
-after a successful manual sync. Its existing catalogue API requires the owning
-college administrator's verified session and CSRF token. Imported user records do
-not grant platform sign-in; users still register and verify their accounts.
+Admins can browse the latest import under **Imported LMS data** on `/admin-dashboard`. The viewer shows courses, modules, users and enrolments, with search and 25 records per page. A successful sync refreshes the counts and import time.
 
 ## Setup
 
-1. Enable Moodle web services and REST. Create a dedicated integration user and
-   API token with permission to read:
-   - `core_user_get_users`
-   - `core_course_get_categories`
-   - `core_course_get_courses`
-   - `core_enrol_get_users_courses` (legacy active enrolments)
-   - `core_enrol_get_enrolled_users` (when importing actual course roles)
-   - `core_course_get_contents` (when mapping activities to modules)
-2. Generate a separate random `COLLEGE_SYNC_TOKEN` and put it in `.env`. Compose
-   shares it only with the college API, LMS API and LMS worker. This authenticates
-   internal catalogue reads/writes; browser sessions cannot call those endpoints.
-   Generate an encryption key and save it as `LMS_ENCRYPTION_KEY` in `.env`:
+Enable Moodle web services and REST, then create an integration user and token with these read functions:
 
-   ```sh
-   python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
-   ```
+- `core_user_get_users`
+- `core_course_get_categories`
+- `core_course_get_courses`
+- `core_enrol_get_users_courses` for legacy enrolments
+- `core_enrol_get_enrolled_users` for course roles
+- `core_course_get_contents` when using activities as modules
 
-   Keep this key and back it up separately from the database. Losing it means
-   administrators must enter their Moodle API keys again.
-3. Start the services:
+Generate a separate `COLLEGE_SYNC_TOKEN` in `.env`. The college API, LMS API and worker use it for internal catalogue requests. Generate `LMS_ENCRYPTION_KEY` with:
 
-   ```sh
-   docker compose up -d --build lms_db lms_svc lms_worker gateway dashboard_svc
-   ```
+```sh
+python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
+```
 
-4. Sign in as the college administrator. On the **Admin Dashboard**, select **Moodle**,
-   enter its public HTTPS URL and API key, configure **Academic structure and role
-   mapping**, and save the connection. Settings are supplied by the installed adapter.
+Keep the encryption key when backing up the database. Saved Moodle credentials depend on it.
 
-Public HTTPS hosts need no manual approval. To restrict hosts, optionally set
-`LMS_ALLOWED_HOSTS` to a comma-separated list. Internal-only Moodle sites are
-blocked. Set `LMS_DB_PASSWORD` for the database credentials.
+Start the services:
+
+```sh
+docker compose up -d --build lms_db lms_svc lms_worker gateway dashboard_svc
+```
+
+Sign in as the college admin, open **College system connection**, select Moodle and enter its public HTTPS URL and API key. Configure **Academic structure and role mapping**, then save.
+
+Set `LMS_DB_PASSWORD` for the database. `LMS_ALLOWED_HOSTS` can restrict connections to a comma-separated list of hosts.
 
 ## Imported data
 
-| Moodle | Platform |
+| Moodle | Platform default |
 | --- | --- |
 | Users | College directory records |
-| Categories | Degree programmes (`courses`) |
-| Courses | Academic subjects (`modules`) |
-| Active user course enrolments | Links from Moodle user IDs to college module IDs |
+| Categories | Courses and programmes |
+| Courses | Modules |
+| Active enrolments | Links between imported users and modules |
 
-These are the compatibility defaults. Admins can choose category depths, custom
-fields, activity modules and role shortnames; see [configurable mapping](lms-adapters.md). Only data visible to the Moodle token is imported.
-Imported users must still register and verify their email to sign in. Passwords,
-grades and files are not imported. Active enrolments use `core_enrol_get_users_courses` in legacy mode or
-`core_enrol_get_enrolled_users` in role-aware mode; suspended users receive no links.
-The token must be able to view the relevant users and courses. The API returns
-only active enrolments visible to that token ([Moodle API documentation](https://phpdoc.moodledev.io/main/d6/d09/classcore__enrol__external.html)).
-Imports are limited to 5,000 users and 500,000 enrolment links.
+Mapping settings control category depths, custom fields, activities and role names. The import includes records visible to the Moodle token, with limits of 5,000 users and 500,000 enrolment links. Passwords, grades and files are excluded. Imported users register and verify their platform accounts separately.
 
 ## Nightly updates
 
-Saving an enabled connection queues an initial sync. After that, updates run at
-**02:00 Europe/Dublin**, including daylight saving changes. Override this with
-`LMS_SYNC_HOUR` and `LMS_SYNC_TIMEZONE`.
+Saving an enabled connection queues the first sync. Updates then run at **02:00 Europe/Dublin**. Change the schedule with `LMS_SYNC_HOUR` and `LMS_SYNC_TIMEZONE`.
 
-The worker checks for due jobs every 30 seconds and catches up after restarts.
-Failed jobs retry after 15 minutes and keep the last successful data. A database
-lock prevents overlapping syncs for the same connection.
+The worker checks for jobs every 30 seconds and catches up after a restart. Failed jobs retry after 15 minutes, keeping the last successful import. A database lock prevents two syncs for the same connection running together.
 
-Administrators can check sync status, select **Sync now**, or pause nightly updates.
-API keys are saved encrypted; leaving the key blank keeps the existing credential.
-Back up the `lms_db_data` volume as well as the encryption key.
+Admins can select **Sync now** or pause nightly updates. Leaving the API key blank when saving keeps the existing encrypted key.
 
 ## Security
 
-- Only the owning college administrator can manage the connection, using a valid
-  session and CSRF token.
-- External requests require HTTPS on port 443. Private/internal addresses,
-  metadata addresses and redirects are blocked. DNS is checked on every request,
-  and the connection uses the checked IP to prevent DNS rebinding.
-- Moodle calls use fixed read functions. POST keeps the API key out of URLs;
-  GET alone would not prevent data being sent. Only the Moodle token and lookup
-  parameters are sent, without platform user or course records.
-- Incoming records are checked for valid types, lengths, IDs and relationships.
-  Unknown fields are discarded. Responses and catalogs are limited to 8 MiB,
-  with up to 50,000 records per collection. Invalid imports leave existing data intact.
+Connection changes require the owning admin's session and CSRF token. External requests use HTTPS on port 443. Private addresses, metadata addresses and redirects are blocked. Each request checks DNS and connects to the checked IP.
 
-Use a Moodle token restricted to the required read permissions. Treat imported
-text as untrusted and escape it when displaying it. Large colleges may need a
-paginated export adapter. Verify the connection against a real Moodle site before
-deployment.
+Moodle requests use fixed read functions and send the token in a POST body. Imported records are checked for valid fields, IDs and relationships. Responses and catalogues are limited to 8 MiB and 50,000 records per collection. An invalid import leaves the previous data in place.
 
 ## Adding another system
 
-Implement `LMSProvider.fetch_catalog()` and register the provider factory.
-Each provider handles its own authentication and maps data into users, courses
-and modules. Use the shared public HTTPS transport and validation.
+Implement `LMSProvider.fetch_catalog()` and register the provider. The adapter handles authentication and maps records into users, courses, modules and enrolments using the shared HTTPS transport.
 
-`LMSImportStore` handles catalog storage; `ConnectionStore` handles saved settings
-and sync locks. These interfaces keep provider code separate from scheduling and
-storage. Blackboard and other connectors are not implemented yet.
+`LMSImportStore` saves imports. `ConnectionStore` saves settings, credentials and sync locks.
 
 ## API and tests
 
-Connection, sync and catalog endpoints are under
-`/api/lms/college/{college_id}/lms`. See [the API specification](../api/openapi.yaml)
-for request details.
+Connection, sync and catalogue routes use `/api/lms/college/{college_id}/lms` through the gateway.
 
 ```sh
 .venv-auth/bin/python -m pytest tests/test_lms_security.py tests/test_lms_sync.py tests/test_lms_import.py -q
@@ -124,38 +75,21 @@ node --test tests/lms_ui.test.cjs
 
 ## Academic storage and migration
 
-`college_svc/Objects/Course.py` and `Module.py` use UUID identities and `to_dict()`,
-following the existing college domain object pattern. The academic interface,
-service and Mongo DAO validate records and store them in `college_db.courses`,
-`college_db.modules` and `college_db.academic_catalogs`. A module's `course_id`
-references its owning Course; category hierarchy uses Course `parent_id`.
-IDs stay stable across synchronizations and are scoped to college, provider and
-source URL. Each immutable catalogue version retains consistent names and links.
+The college service stores courses, modules and catalogue versions in `college_db.courses`, `college_db.modules` and `college_db.academic_catalogs`. Modules reference their course through `course_id`; courses use `parent_id` for the category hierarchy.
 
-`lms_db.lms_imports` contains profiles, a `catalog_ref` with the college catalogue,
-course and module IDs, and enrolment links to those IDs. It does not duplicate
-course/module records. The college service publishes a version after all records
-are stored; the LMS service replaces its import only after college publication
-succeeds. A failed import keeps the previous complete version readable. Unlinked
-versions from interrupted imports can be retained safely; no automatic deletion
-runs. The LMS service accesses college data through authenticated internal HTTP
-endpoints, without direct college database credentials.
+IDs remain stable across syncs and are scoped to the college, provider and source URL. The LMS database stores profiles, enrolments and a `catalog_ref` pointing to the college records.
 
-For an existing deployment, rebuild `college_svc`, `lms_svc`, `lms_worker` and
-`dashboard_svc` with the shared service token, then run:
+The college service publishes a catalogue after saving all its records. The LMS service then replaces its current import. A failure keeps the previous complete version available. The services exchange records through authenticated internal HTTP requests.
+
+To migrate older imports, rebuild the college service, LMS API, worker and dashboard with the shared token, then run:
 
 ```sh
 docker compose exec -T lms_svc python -m lms_svc.migrate_catalogs
 ```
 
-Use the development Compose override as well when working with local Moodle.
-The idempotent migration moves old courses/modules to college storage and replaces
-them with references, preserving the last import time and profiles. Run **Sync
-now** after granting the enrolment function to populate personal enrolments.
-Legacy imports display a synchronization message until this completes.
+The migration moves courses and modules to college storage and keeps profiles and import times. It can be run again safely. Select **Sync now** after enabling the enrolment function.
 
-For the local Moodle integration service, add the function without changing the
-token or granting write functions:
+For local Moodle, enable the read function with:
 
 ```sh
 docker compose --env-file Moodle/.env -f Moodle/moodle-docker-compose.yml cp Moodle/scripts/enable_enrolment_service.php webserver:/tmp/enable_enrolment_service.php
@@ -164,93 +98,48 @@ docker compose --env-file Moodle/.env -f Moodle/moodle-docker-compose.yml exec -
 
 ## Student dashboard view
 
-After sign-in, students see their own Moodle name, username, email, programme
-hierarchy and enrolled modules on the student `/dashboard`. The read-only `GET /students/me`
-LMS endpoint validates the users session and derives the college and verified
-email from that account. It returns only the unique matching active Moodle
-profile and modules linked to its Moodle source ID, plus the owning programmes
-and their category ancestors. It ignores client-supplied email/college IDs.
-Missing, suspended or ambiguous matches return no profile or academic records.
-Other students' directory records, enrolments, unrelated modules and connection
-credentials are never included. Empty enrolments show an explicit empty state;
-missing imports and dependency outages show a message while leaving the platform
-account usable.
+`GET /api/lms/students/me` uses the signed-in account's college and verified email to find its active Moodle profile. It returns that profile's enrolled modules and programme hierarchy. Client-supplied email addresses and college IDs are ignored.
+
+A missing, suspended or ambiguous profile returns no academic records. Empty enrolments and service failures show a message on the dashboard.
 
 ## Module roles and tutor applications
 
-The LMS database stores platform module roles in `module_memberships`, with a
-unique `(college_id, user_id, module_id)` relationship and a `roles` array.
-A verified student's first dashboard/profile or module-search request links their
-platform account to their Moodle enrolments and records `student` on each enrolled
-module. Subsequent reads and Moodle synchronizations refresh these memberships,
-removing Student membership for withdrawn or suspended enrolments while preserving
-independently approved Tutor membership. The Moodle source identity is retained
-for synchronization; module roles do not change the account's global roles or
-write back to Moodle.
+Module roles are stored in `module_memberships`, with one record per `(college_id, user_id, module_id)` and a `roles` array. Dashboard visits, module searches and syncs refresh student memberships from enrolments. Withdrawn or suspended enrolments lose student membership; approved tutor membership is kept. These roles leave global account roles and Moodle records unchanged.
 
-`GET /api/lms/students/me/modules?q=...` searches module names and codes in eligible
-previous years of the student's programme. Programme and year are explicit canonical module metadata supplied by the
-configured provider mapper. Moodle's default layout remains department → programme
-→ year; admins can configure other layouts or course fields.
-Programme membership is derived from current enrolments, and results exclude
-other programmes and colleges. No enrolments means no programme modules.
+`GET /api/lms/students/me/modules?q=...` searches eligible earlier-year modules in the student's programme. The highest enrolled year determines their current year unless the mapper supplies it explicitly. Unknown years grant no eligibility. Year 1 students cannot apply.
 
-`POST /api/lms/students/me/modules/<module_id>/tutor-application` accepts
-`{"grade": 85}` with a required numeric grade from 0 to 100 (decimals allowed). It requires the
-current student's session and users-service CSRF token, checks programme access,
-and creates one pending `tutor_applications` record per user/module. Applications
-are permitted only for modules in earlier years of the same programme, including
-previous-year modules that remain on their Moodle enrolment record. The highest enrolled year per
-programme determines the current year. The mapper must supply a numeric academic year; unknown years do not
-grant eligibility. Moodle year aliases and field sources are configurable. Year 1 students cannot apply. Search only returns eligible previous-year programme
-modules, each with `can_apply_to_tutor` set to true. Ineligible modules are omitted
-from both the API results and the dashboard list. Lecturer approval
-rechecks current enrolments and eligibility before granting the Tutor role. Repeated
-submissions return the same application; applying does not grant Tutor access.
+Submit an application with:
+
+```http
+POST /api/lms/students/me/modules/<module_id>/tutor-application
+Content-Type: application/json
+X-CSRFToken: <users-service token>
+```
+
+```json
+{"grade": 85}
+```
+
+Grades must be numeric from 0 to 100. The request requires the student's session and creates one pending application per user and module. Repeated submissions return the same application.
 
 Lecturers review applications at `/tutor-applications`:
 
-- `GET /api/lms/lecturers/me/tutor-applications` lists pending applications for their modules.
-- `POST /api/lms/lecturers/me/tutor-applications/<id>/review` accepts
-  `{"decision": "approved"}` or `{"decision": "rejected"}` with a session and CSRF token.
+- `GET /api/lms/lecturers/me/tutor-applications` lists their pending applications.
+- `POST /api/lms/lecturers/me/tutor-applications/<id>/review` accepts `{"decision": "approved"}` or `{"decision": "rejected"}`, with a session and CSRF token.
 
-The verified account email must match exactly one active imported Moodle profile.
-Only the module's single lecturer can approve or reject its applications. The
-assignment is checked against the current imported catalogue on every request;
-suspended, removed, ambiguous and self-reviewing lecturers cannot review.
-College administrators retain approval access for manually managed modules only.
-The existing `/college/<college_id>/tutor-applications` endpoints use the same
-module permission checks. Approval records `tutor` on that module membership,
-retains an existing `student` role, and records the reviewer and review time.
-Repeated identical decisions are safe; conflicting decisions are rejected.
+The lecturer's verified email must match one active imported profile, and they must be the module's assigned lecturer. Self-review is blocked. College admins review manually managed modules through `/college/<college_id>/tutor-applications`.
 
-Moodle connections now default to **Moodle course role shortnames** (`course_roles`),
-with `editingteacher` and `teacher` mapped to Lecturer. Existing connections using
-legacy `enrolments` must switch to `course_roles` and synchronize. The Moodle
-web service needs `core_enrol_get_enrolled_users`. Multiple lecturers for a module
-abort the import and preserve the previous catalogue. Modules with no active
-lecturer have no reviewer until their Moodle assignment is fixed and synchronized.
+Approval checks eligibility again, adds the module's tutor role and records the reviewer and time. Repeating the same decision is safe; conflicting decisions are rejected.
 
-For local development, `Moodle/scripts/seed_lecturers.php` creates synthetic lecturers
-and active manual enrolments for module courses without a lecturer. It preserves
-existing single lecturer assignments, rejects conflicts, and can be rerun safely.
-One synthetic lecturer is shared by all modules in a Moodle category:
+Moodle course-role mapping uses `editingteacher` and `teacher` for lecturers by default. Existing legacy connections need `course_roles` selected and a new sync. Multiple lecturers on one module cause the import to fail; a module without an active lecturer has no assigned reviewer.
+
+For local testing, seed lecturers with:
 
 ```sh
 docker cp Moodle/scripts/seed_lecturers.php moodle-webserver-1:/tmp/seed_lecturers.php
 docker exec --user www-data moodle-webserver-1 php /tmp/seed_lecturers.php --domain=student.testcollege.ie
 ```
 
-Use the development college's signup email domain. Synthetic accounts have random
-Moodle passwords; no password is written to the repository. A platform account
-uses its own password and verified matching email. Lecturer permissions come from
-the imported module assignment, independently of the platform's Student/Tutor roles.
+Use the development college's email domain. The script keeps existing single-lecturer assignments and creates one test lecturer per Moodle category. Platform accounts need a matching verified email and their own password.
 
-See [LMS adapters and configurable mapping](lms-adapters.md) for provider
-interfaces, installation, admin mapping options and role-aware Moodle import.
-
-Lecturer accounts landing on `/dashboard` now see their teaching modules and
-pending tutor applications. `/lecturer-dashboard` provides the same view directly;
-`GET /api/lms/lecturers/me/modules` lists only the current account's authorized
-teaching modules. Lecturer modules are separate from student enrolments and do
-not grant student tutoring eligibility.
+Lecturers see their teaching modules and pending applications at `/dashboard` or `/lecturer-dashboard`. `GET /api/lms/lecturers/me/modules` returns their assigned modules. Teaching a module does not grant student tutoring eligibility.

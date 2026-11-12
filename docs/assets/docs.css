@@ -1,0 +1,5 @@
+.mermaid { overflow-x: auto; max-width: 100%; margin: 1.5rem 0; }
+.mermaid svg { min-width: 100%; height: auto; }
+.mermaid:focus-visible { outline: 2px solid #2980b9; outline-offset: 4px; }
+.wy-table-responsive { overflow-x: auto; }
+.wy-table-responsive table td, .wy-table-responsive table th { white-space: normal; }

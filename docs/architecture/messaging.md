@@ -1,7 +1,9 @@
 # Messaging Service
+
 This service provides messaging features for a students and tutors. It uses Flask and Socket.IO for real time comminication between the client and server.
 
-The key features include: 
+The key features include:
+
 * Room based message broadcasting
 * Instant message delivery
 * File uploads
@@ -13,7 +15,8 @@ The dashboard must sign the JSON request to `POST /mychats/me` with the shared
 HMAC-SHA256 hex digest of the raw request body. Messaging rejects missing or
 invalid signatures and only accepts users with an `active` status.
 
-# Environment
+## Environment
+
 SECRET_KEY
 A secret key is required to protect the integrity of data in transit.
 GENERATE -> python3 -c 'import secrets; print(secrets.token_hex(32))'
@@ -27,7 +30,7 @@ DASHBOARD_SHARED_SECRET
 The secret shared only by the dashboard backend and messaging service. Never
 expose this value to browser code.
 
-# Dashboard integration
+## Dashboard integration
 
 The dashboard authenticates the user with the user service, then sends the
 authenticated user context to messaging. From Docker containers, use

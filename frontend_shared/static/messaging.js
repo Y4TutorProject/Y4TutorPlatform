@@ -1,10 +1,63 @@
 const appEl = document.getElementById("chat-app");
 const currentUserId = appEl ? appEl.dataset.userId : null;
 let currentChatId = null;
+let sending = false;
+const chatDrafts = new Map();
+const chatLayout = document.querySelector('.messages-layout');
+const chatStatus = document.getElementById('chat-status');
+function showChatStatus(text = '') {
+  chatStatus.textContent = text;
+  chatStatus.hidden = !text;
+  sizeConversation();
+}
+function updateConnection() {
+  document.getElementById('send-btn').disabled = !socketio.connected || !navigator.onLine || sending;
+  if (!socketio.connected || !navigator.onLine) showChatStatus('Messaging disconnected. Reconnecting… Your typed message will stay here.');
+  else if (!sending) showChatStatus();
+}
+function sizeConversation() {
+  if (!window.matchMedia('(max-width: 767px)').matches) return;
+  const viewport = window.visualViewport;
+  const bottom = (viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0);
+  const top = chatLayout.getBoundingClientRect().top;
+  chatLayout.style.setProperty('--chat-height', `${Math.max(140, bottom - top - 12)}px`);
+}
+window.visualViewport?.addEventListener('resize', sizeConversation);
+window.visualViewport?.addEventListener('scroll', sizeConversation);
+window.addEventListener('resize', sizeConversation);
+// Banners and the expanded menu change the available space without resizing
+// the viewport. Keep the composer in view when these elements change height.
+if ('ResizeObserver' in window) {
+  const layoutObserver = new ResizeObserver(sizeConversation);
+  document.querySelectorAll('.pwa-toolbar, .platform-nav, .messages-heading, #chat-status').forEach(element => layoutObserver.observe(element));
+}
+sizeConversation();
+document.getElementById('chat-back').addEventListener('click', () => {
+  stopTyping();
+  chatLayout.classList.remove('conversation-open');
+  const selected = document.getElementById(`chat-${currentChatId}`);
+  selected?.focus();
+});
 
 const socketio = io({ auth: { userId: currentUserId } });
 
+socketio.on('connect', () => {
+  updateConnection();
+  const selected = document.getElementById(`chat-${currentChatId}`);
+  if (selected) getMessages(selected.dataset.displayName, currentChatId, true);
+});
+socketio.on('disconnect', updateConnection);
+window.addEventListener('offline', updateConnection);
+window.addEventListener('online', updateConnection);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && socketio.connected) {
+    const selected = document.getElementById(`chat-${currentChatId}`);
+    if (selected) getMessages(selected.dataset.displayName, currentChatId, true);
+  }
+});
+updateConnection();
 socketio.on("connect_error", function (error) {
+  updateConnection();
   console.error("Messaging connection failed:", error.message);
 });
 
@@ -12,7 +65,8 @@ socketio.on("message", function (msg) {
   updateChatSidebar(msg);
   if (String(msg.chatId) === String(currentChatId)) {
     hideTypingIndicator();
-    markChatRead(msg.chatId);
+    if (document.visibilityState === 'visible' &&
+        (chatLayout.classList.contains('conversation-open') || !window.matchMedia('(max-width: 767px)').matches)) markChatRead(msg.chatId);
     createChatItem(msg, document.getElementById("chat-header").innerText);
   }
 });
@@ -144,10 +198,9 @@ function showMessageBox() {
   document.getElementById("no-chat-message").classList.add("d-none");
 }
 
-function getMessages(displayName, chatId) {
-  if (currentChatId === chatId) {
-    return;
-  }
+function getMessages(displayName, chatId, refresh = false) {
+  if (!refresh) chatLayout.classList.add('conversation-open');
+  sizeConversation();
   if (currentChatId) {
     stopTyping();
     socketio.emit("leave_chat", {
@@ -155,10 +208,16 @@ function getMessages(displayName, chatId) {
       userId: currentUserId,
     });
   }
+  if (String(currentChatId) !== String(chatId)) {
+    const input = document.getElementById('message-input');
+    if (currentChatId !== null) chatDrafts.set(String(currentChatId), input.value);
+    input.value = chatDrafts.get(String(chatId)) || '';
+  }
   currentChatId = chatId;
   hideTypingIndicator();
-  markChatRead(chatId);
   showMessageBox();
+  document.getElementById('chat-header').innerText = displayName;
+  if (!refresh) document.getElementById('conversation-messages').replaceChildren();
 
   socketio.emit("join_chat", { chatId: chatId, userId: currentUserId });
   fetch("/api/messaging/mychats/chat/" + encodeURIComponent(String(chatId)), {
@@ -172,6 +231,9 @@ function getMessages(displayName, chatId) {
       return response.json();
     })
     .then((data) => {
+      if (String(currentChatId) !== String(chatId)) return;
+      if (document.visibilityState === 'visible' &&
+          (chatLayout.classList.contains('conversation-open') || !window.matchMedia('(max-width: 767px)').matches)) markChatRead(chatId);
       document.getElementById("chat-header").innerText = displayName;
       const messageBox = document.getElementById("conversation-messages");
       messageBox.innerHTML = "";
@@ -179,28 +241,41 @@ function getMessages(displayName, chatId) {
         createChatItem(message, displayName);
       });
     })
-    .catch((error) => console.error("Chat message loading failed:", error));
+    .catch(() => {
+      if (String(currentChatId) === String(chatId)) showChatStatus('Could not load this conversation. Select it again to retry.');
+    });
 }
 
 function sendMessage() {
   const msgInput = document.getElementById("message-input");
-  if (currentChatId === null || msgInput.value.trim() === "") return;
+  if (currentChatId === null || msgInput.value.trim() === "" || sending || !socketio.connected || !navigator.onLine) return;
   const msg = msgInput.value;
+  const sendingChatId = currentChatId;
+  sending = true;
+  updateConnection();
   stopTyping();
-  socketio.emit("message", {
+  socketio.timeout(10000).emit("message", {
     message: msg,
     chatId: currentChatId,
     senderId: currentUserId,
     timestamp: new Date().toISOString(),
+  }, (error, result) => {
+    sending = false;
+    updateConnection();
+    if (error || !result?.ok) {
+      showChatStatus('Delivery could not be confirmed. Check the conversation before trying again.');
+      return;
+    }
+    if (String(currentChatId) === String(sendingChatId) && msgInput.value === msg) msgInput.value = "";
+    if (chatDrafts.get(String(sendingChatId)) === msg) chatDrafts.delete(String(sendingChatId));
   });
-  msgInput.value = "";
 }
 
 let typingTimeout = null;
 let isTyping = false;
 
 function stopTyping() {
-  if (isTyping && currentChatId !== null) {
+  if (isTyping && currentChatId !== null && socketio.connected) {
     socketio.emit("typing", { chatId: currentChatId, isTyping: false });
   }
   isTyping = false;
@@ -223,12 +298,13 @@ const messageInput = document.getElementById("message-input");
 
 messageInput.addEventListener("keydown", function (event) {
   if (event.key === "Enter") {
+    event.preventDefault();
     sendMessage();
   }
 });
 
 messageInput.addEventListener("input", function (event) {
-  if (currentChatId === null) {
+  if (currentChatId === null || !socketio.connected || !navigator.onLine) {
     return;
   }
 
