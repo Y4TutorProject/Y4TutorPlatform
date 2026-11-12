@@ -1,16 +1,16 @@
 # API specs
 
-- [openapi.yaml](openapi.yaml): users, registration, colleges and gateway health.
+[openapi.yaml](openapi.yaml) contains the OpenAPI 3.1 reference for registration, users, colleges, dashboard routes, messaging, LMS connections and gateway health. Open it in Swagger Editor or import it into Postman.
 
-OpenAPI 3.1 and can be imported into Swagger Editor or Postman.
+For POST requests, get a CSRF token from the receiving service and keep its session cookie. College and LMS requests use the users-service token and session. Local verification emails appear at <http://localhost:8025>.
 
-For POSTs, fetch the receiving service's CSRF token first and keep its cookie.
-College creation uses the users token and session. New accounts need email
-verification; local verification messages appear at http://localhost:8025.
+## Reference coverage
 
-The standalone LMS API at `/api/lms/` supports saved connections, nightly updates,
-manual synchronization and catalog reads using the users token and session.
-See [LMS integration setup and provider contracts](../architecture/lms-integration.md).
-
-Matching currently takes a JSON body on a GET request. Some clients do not
-support this; the spec documents the existing endpoint.
+| Area | Guide |
+| --- | --- |
+| Accounts, usernames and preferences | [Users and registration](../architecture/users.md) |
+| Courses, modules, assignments and CSV imports | [Manual academic records](../architecture/manual-academics.md) |
+| LMS connections, student modules and tutor applications | [LMS integration](../architecture/lms-integration.md) |
+| Matching requests | [Matching system](../architecture/matching-system.md) |
+| Chat sessions and Socket.IO | [Messaging](../architecture/messaging.md) |
+| Notification records and API design | [Notifications](../architecture/notifications.md) |
