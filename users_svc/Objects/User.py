@@ -11,7 +11,8 @@ from .UserStatus import UserStatus
 class User(UserMixin):
     def __init__(self, username, passhash, email, college_id=None, user_id=None,
                  status=UserStatus.ACTIVE, roles=None, preferences=None, email_verified=True,
-                 preferences_completed=False, username_completed=True):
+                 preferences_completed=False, username_completed=True,
+                 teaching_preferences=None, teaching_preferences_completed=False):
         """Build a user with UUID identifiers and enum values, defaulting to an active
         student.
 
@@ -32,6 +33,10 @@ class User(UserMixin):
                 to True for compatibility with existing accounts.
             preferences_completed (bool): Whether preference onboarding is complete.
             username_completed (bool): Whether the user has chosen their username.
+            teaching_preferences (dict | None): Same format as preferences, describing
+                how the user prefers to teach. Missing scores default to zero.
+            teaching_preferences_completed (bool): Whether the user has set their
+                teaching preferences, so unset differs from all-zero scores.
 
         Raises:
             ValueError: An identifier or enum value is invalid.
@@ -44,14 +49,18 @@ class User(UserMixin):
         self.status = UserStatus(status)
         self.roles = [Role(role) for role in roles] if roles is not None else [Role.STUDENT]
         self.preferences = {pref: 0 for pref in LearningTeachingStyles}
+        self.teaching_preferences = {pref: 0 for pref in LearningTeachingStyles}
         if preferences is not None:
             self.set_learning_preferences(preferences)
+        if teaching_preferences is not None:
+            self.set_teaching_preferences(teaching_preferences)
         self.email_verified = email_verified
         self.preferences_completed = preferences_completed
+        self.teaching_preferences_completed = teaching_preferences_completed
         self.username_completed = username_completed
 
     def set_learning_preferences(self, preferences):
-        """Update supplied scores, preserving unspecified preferences.
+        """Update supplied learning preference scores, preserving unspecified preferences.
 
         Accept LearningTeachingStyles members or their lowercase string values as keys.
         Raise ValueError for unknown keys or scores outside the integer range 0–10,
@@ -69,6 +78,26 @@ class User(UserMixin):
                 raise ValueError("Preference scores must be integers from 0 to 10.")
             updates[preference] = score
         self.preferences.update(updates)
+
+    def set_teaching_preferences(self, preferences):
+        """Update supplied teaching preference scores, preserving unspecified preferences.
+
+        Accept LearningTeachingStyles members or their lowercase string values as keys.
+        Raise ValueError for unknown keys or scores outside the integer range 0–10,
+        leaving all scores unchanged if validation fails.
+        """
+        if not isinstance(preferences, dict):
+            raise ValueError("Preferences must be a dictionary of scores.")
+        updates = {}
+        for key, score in preferences.items():
+            try:
+                preference = LearningTeachingStyles(key)
+            except (ValueError, TypeError):
+                raise ValueError(f"Unknown teaching preference: {key!r}.") from None
+            if type(score) is not int or not 0 <= score <= 10:
+                raise ValueError("Preference scores must be integers from 0 to 10.")
+            updates[preference] = score
+        self.teaching_preferences.update(updates)
 
     @property
     def is_active(self):
@@ -90,6 +119,10 @@ class User(UserMixin):
             "college_id": str(self.college) if self.college else None,
             "roles": [role.value for role in self.roles],
             "preferences": {pref.value: score for pref, score in self.preferences.items()},
+            "teaching_preferences": {
+                pref.value: score for pref, score in self.teaching_preferences.items()
+            },
+            "teaching_preferences_completed": self.teaching_preferences_completed,
         }
 
     def to_public_dict(self):
@@ -105,5 +138,9 @@ class User(UserMixin):
             "email_verified": self.email_verified,
             "preferences": {pref.value: score for pref, score in self.preferences.items()},
             "preferences_completed": self.preferences_completed,
+            "teaching_preferences": {
+                pref.value: score for pref, score in self.teaching_preferences.items()
+            },
+            "teaching_preferences_completed": self.teaching_preferences_completed,
             "username_completed": self.username_completed,
         }

@@ -145,6 +145,9 @@ class ModuleParticipation(ModuleParticipationStore):
                 {'_id': self.identity(college_id, application['user_id'], application['module_id'])},
                 {'$set': {'college_id': college_id, 'user_id': application['user_id'],
                           'module_id': application['module_id']}, '$addToSet': {'roles': 'tutor'}}, upsert=True)
+            # send a request to the user service to update the roles of the user to include tutor
+            from flask import current_app
+            current_app.extensions["users_service"].update_role(application['user_id'], 'tutor')
         return self.public(application)
 
 

@@ -2,6 +2,12 @@
 
 const statusElement = document.getElementById("form-status");
 
+// Declared before the page switch below, which calls setup functions on load.
+const PREFERENCE_ENDPOINTS = {
+  learning: "/users/me/preferences",
+  teaching: "/users/me/teaching_preferences",
+};
+
 function showStatus(message, error = false) {
   statusElement.textContent = message;
   statusElement.className = error ? "alert alert-danger" : "alert alert-info";
@@ -352,6 +358,7 @@ switch (document.body.dataset.page) {
 
 function setupPreferences() {
   const form = document.getElementById("preferences-form");
+  const kind = form.dataset.kind in PREFERENCE_ENDPOINTS ? form.dataset.kind : "learning";
   const button = form.querySelector('button[type="submit"]');
   form.addEventListener("submit", async event => {
     event.preventDefault();
@@ -364,12 +371,12 @@ function setupPreferences() {
       preferences[key] = Number(form.elements[key].value);
     }
     try {
-      const { user } = await submitToAPI("/api/users", "/users/me/preferences", { preferences });
+      const { user } = await submitToAPI("/api/users", PREFERENCE_ENDPOINTS[kind], { preferences });
       if (form.dataset.onboarding === "true") {
         window.location.assign(user.roles.includes("college_admin") && !user.college_id
           ? "/register-college" : "/dashboard");
       } else {
-        showStatus("Your learning preferences have been saved.");
+        showStatus(`Your ${kind} preferences have been saved.`);
       }
     } catch (error) {
       if (error.status === 401) window.location.replace("/login");

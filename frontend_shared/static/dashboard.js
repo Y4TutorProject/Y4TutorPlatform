@@ -1,9 +1,10 @@
+// Dashboard script for handling module selection and displaying tutors for the selected module
 document.addEventListener("DOMContentLoaded", function () {
     const moduleButtons = document.querySelectorAll(".module-btn");
     const results = document.getElementById("tutor-results");
     const selectedModule = document.getElementById("selected-module");
     let activeRequest = 0;
-
+    // Utility function to create an element with optional class and text content
     function element(tag, className, text) {
         const node = document.createElement(tag);
         node.className = className;
@@ -11,6 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return node;
     }
 
+    // Display a state message (loading, error, etc.) in the results container
     function showState(title, message, isError = false) {
         const state = element("div", `tutor-state${isError ? " tutor-state-error" : ""}`);
         state.append(
@@ -20,6 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
         results.replaceChildren(state);
     }
 
+    // Create a card element for a tutor with their details and messaging option
     function tutorCard(tutor) {
         const card = element("article", "tutor-card");
         const header = element("div", "tutor-card-header");
@@ -39,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
             reading_writing: "Reading & writing",
             kinesthetic: "Kinesthetic"
         };
-        Object.entries(tutor.preferences || {}).forEach(([key, score]) => {
+        Object.entries(tutor.teaching_preferences || {}).forEach(([key, score]) => {
             const label = labels[key] || key.replace(/_/g, " ");
             chips.append(element("li", "preference-chip", `${label} \u00b7 ${score}/10`));
         });
@@ -64,6 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return card;
     }
 
+    // Add event listeners to module buttons to fetch and display tutors for the selected module
     moduleButtons.forEach(button => {
         button.addEventListener("click", async function () {
             const requestId = ++activeRequest;
@@ -96,4 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
+    
+    
 });

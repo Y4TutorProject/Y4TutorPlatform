@@ -73,7 +73,6 @@ services:
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       - MONGO_DB_NAME=users_db
       - MONGO_COLLECTION_NAME=users
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     depends_on:
       users_db:
         condition: service_healthy
@@ -117,7 +116,6 @@ services:
       USERS_API_URL: http://gateway/api/users
       COLLEGE_API_URL: http://college_svc:5000
       COLLEGE_SYNC_TOKEN: ${COLLEGE_SYNC_TOKEN:-}
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     depends_on:
       lms_db:
         condition: service_healthy
@@ -173,7 +171,7 @@ services:
       - COLLEGE_API_URL=http://college_svc:5000
       - MESSAGING_API_URL=http://messaging_svc:5000
       - LMS_API_URL=http://gateway/api/lms
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+      - SESSION_SECRET=${SESSION_SECRET}
     depends_on:
       users_svc:
         condition: service_started

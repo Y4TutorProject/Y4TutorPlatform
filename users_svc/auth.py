@@ -1,3 +1,5 @@
+from multiprocessing import AuthenticationError
+
 from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import generate_csrf
@@ -6,16 +8,32 @@ from .Objects.LearningTeachingStyles import LearningTeachingStyles
 import uuid
 from pymongo.errors import DuplicateKeyError
 from .credentials import normalize_username
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
 
 
 auth = Blueprint("auth", __name__)
 
 def current_role():
-    roles = {role.value for role in current_user.roles}
-    selected = session.get("active_role")
-    if selected in roles:
+    """Get the current active role for the authenticated user.
+
+    Returns:
+        Role | None: The current active role for the authenticated user, or None if no role is selected or available.
+    """
+    ROLE_PRIORITY = [Role.COLLEGE_ADMIN, Role.TUTOR, Role.STUDENT]
+    roles = [role.value for role in current_user.roles]
+    try:
+        selected = Role(session.get("active_role"))
+    except ValueError:
+        selected = None
+    if selected and selected.value in roles:
         return selected
-    return Role.STUDENT.value if Role.STUDENT.value in roles else None
+    for role in ROLE_PRIORITY:
+        if role.value in roles:
+            return role
+    return next((role for role in ROLE_PRIORITY if role.value in roles), None)
 
 def json_body():
     """Parse the request body as a JSON object.
@@ -61,12 +79,13 @@ def login():
         )
     except ValueError:
         user = None
+    logger.warning("Attempted login for email: %s", data.get("email"))
     if user is None:
         return jsonify(error="Invalid email or password."), 401
     session.clear()
     login_user(user, remember=False)
     session.permanent = True
-    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role())
+    return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role().value if current_role() else None)
 
 
 @auth.post("/auth/logout")
@@ -134,6 +153,29 @@ def college_users(college_id):
         return jsonify(error="College not found or not owned by this administrator."), 403
     return jsonify(users=current_app.extensions['users_dao'].list_college_users(college_id))
 
+@auth.post("/users/me/updaterole")
+@login_required
+def update_role():
+    """Update the specified user's role (when the admin approves a student, this will be called).
+    only allow updating a student to a tutor.
+    only an admin can perform this action.
+    Raises a ValueError if the role change is not permitted.
+    """
+    try:
+        if Role.ADMIN.value not in current_user.roles:
+            raise ValueError("Admin access required.")
+        role = json_body().get("role")
+        user = json_body().get("user")
+        if Role.STUDENT.value not in user.get("roles", []):
+            raise ValueError("Only students can be promoted to tutors.")
+        if Role.TUTOR.value in user.get("roles", []):
+            raise ValueError("User is already a tutor.")
+        user = current_app.extensions["users_service"].update_role(user.id, role)
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if user is None:
+        return jsonify(error="User no longer exists."), 404
+    return jsonify(user=user.to_public_dict())
 
 @auth.post("/users/me/username")
 @login_required
@@ -175,6 +217,23 @@ def set_preferences():
         return jsonify(error="User no longer exists."), 404
     return jsonify(user=user.to_public_dict())
 
+@auth.post("/users/me/teaching_preferences")
+@login_required
+def set_teaching_preferences():
+    """Save the signed-in user's four teaching preference ratings and complete preference onboarding."""
+    try:
+        data = json_body()
+        preferences = data.get("preferences")
+        if not isinstance(preferences, dict) or set(preferences) != {pref.value for pref in LearningTeachingStyles}:
+            raise ValueError("Provide a score for each of the four teaching preferences.")
+        user = current_app.extensions["users_service"].set_teaching_preferences(
+            current_user.id, preferences,
+        )
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if user is None:
+        return jsonify(error="User no longer exists."), 404
+    return jsonify(user=user.to_public_dict())
 
 @auth.post("/users/me/college")
 @login_required

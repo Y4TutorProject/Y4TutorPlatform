@@ -397,6 +397,46 @@ paths:
               - college_id
       description: Requires college_admin. The college must belong to the signed-in user. Existing membership
         cannot be replaced with another college.
+  /api/users/me/updaterole:
+    post:
+      tags:
+      - Users
+      summary: Update the signed-in user's role
+      operationId: updateUserRole
+      responses:
+        '200':
+          description: Updated user account with the new role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security:
+      - UsersSession: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+              required:
+              - role
+      description: Requires a verified user session. The role must be one of the valid enrolment roles.
   /api/colleges/college:
     get:
       tags:
@@ -1072,7 +1112,17 @@ components:
             type: integer
             minimum: 0
             maximum: 10
-      required: [id, username, college_id, roles, preferences]
+        teaching_preferences:
+          type: object
+          description: Teaching preference scores from 0 to 10.
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 10
+        teaching_preferences_completed:
+          type: boolean
+          description: False when the user has not set teaching preferences, so all-zero scores mean unset.
+      required: [id, username, college_id, roles, preferences, teaching_preferences, teaching_preferences_completed]
     UserProfileResponse:
       type: object
       properties:

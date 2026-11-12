@@ -2,6 +2,8 @@ import secrets
 
 from werkzeug.security import check_password_hash
 
+from users_svc.Objects.Role import Role
+
 from .credentials import hash_password, normalize_email
 from .interfaces.users_interface import UsersInterface
 from .Objects.UserStatus import UserStatus
@@ -63,6 +65,30 @@ class UsersService(UsersInterface):
             user.preferences_completed = True
         return user if self.dao.update_user(user) else None
 
+    def set_teaching_preferences(self, user_uuid, preferences):
+        """Validate and persist supplied teaching preference scores.
+
+        Supplying all four preferences also completes preference onboarding.
+
+        Args:
+            user_uuid (str | uuid.UUID): Identifier of the user to update.
+            preferences (dict): LearningTeachingStyles members or lowercase string keys
+                mapped to integer scores from 0 to 10. Other scores are preserved.
+
+        Returns:
+            User | None: Updated user, or None if no stored user matches.
+
+        Raises:
+            ValueError: A preference name or score is invalid.
+        """
+        user = self.dao.get_user(user_uuid)
+        if user is None:
+            return None
+        user.set_teaching_preferences(preferences)
+        if {LearningTeachingStyles(key) for key in preferences} == set(LearningTeachingStyles):
+            user.teaching_preferences_completed = True
+        return user if self.dao.update_user(user) else None
+    
     def change_status(self, user_uuid, new_status):
         """Save and return the user with the new status, or None if the ID is unknown.
 
@@ -82,3 +108,14 @@ class UsersService(UsersInterface):
             user.status = UserStatus(new_status)
             self.dao.update_user(user)
         return user
+
+    def update_role(self, user_uuid, role):
+        """Update the role of the specified user."""
+        user = self.dao.get_user(user_uuid)
+        if user is None:
+            return None
+        if role not in [r.value for r in Role]:
+            raise ValueError("Invalid role.")
+        if role not in user.roles:
+            user.roles.append(role)
+        return user if self.dao.update_user(user) else None

@@ -84,6 +84,8 @@ class MongoUsersDAO(UsersDAO):
             email_verified=data.get("email_verified", True),
             preferences=preferences,
             preferences_completed=data.get("preferences_completed", True),
+            teaching_preferences=data.get("teaching_preferences"),
+            teaching_preferences_completed=data.get("teaching_preferences_completed", False),
             username_completed=data.get("username_completed",
                                         re.fullmatch(r"user_[0-9a-f]{20}", data["username"]) is None),
         )
