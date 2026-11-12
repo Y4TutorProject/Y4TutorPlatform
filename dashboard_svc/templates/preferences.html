@@ -36,7 +36,8 @@
       ] %}
       <div class="mb-3">
         <label for="preference-{{ key }}" class="form-label">{{ label }}</label>
-        <input id="preference-{{ key }}" name="{{ key }}" type="number" min="0" max="10" step="1" required class="form-control"
+        <span class="float-end" aria-hidden="true"><span id="value-{{ key }}">{{ scores.get(key, 0) }}</span> / 10</span>
+        <input id="preference-{{ key }}" name="{{ key }}" type="range" min="0" max="10" step="1" class="form-range"
                value="{{ scores.get(key, 0) }}" aria-describedby="help-{{ key }}">
         <p id="help-{{ key }}" class="form-text">{{ copy.descriptions[key] }}</p>
       </div>
