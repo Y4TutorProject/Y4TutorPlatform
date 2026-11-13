@@ -145,4 +145,3 @@ These entries record implemented decisions. Reasons and alternatives were writte
 **Other options:** Keep numeric input boxes.
 
 **Trade-off:** Sliders still need a visible value and server-side validation of submitted scores.
-
