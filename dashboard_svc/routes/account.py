@@ -1,7 +1,7 @@
 from flask import Blueprint, abort, g, render_template, request
 
 from users_client import login_required
-from .tutor import is_tutor, needs_teaching_preferences
+from .tutor import needs_teaching_preferences
 
 bp = Blueprint("account", __name__)
 
@@ -20,7 +20,6 @@ def account():
         "account.html",
         user=g.user,
         can_manage_college=can_manage_college(g.user),
-        is_tutor=is_tutor(g.user),
     )
 
 

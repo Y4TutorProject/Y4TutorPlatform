@@ -122,7 +122,19 @@ These entries record implemented decisions. Reasons and alternatives were writte
 
 **Trade-off:** Shared CSS changes need checking across roles and screens.
 
-## 011 - Integrate tutor matching through the dashboard
+## 011 - Use sliders for preference scores
+
+**Date:** 2026-11-12
+
+**Decision:** Use sliders instead of numeric input boxes to collect learning and teaching preference scores from 0 to 10.
+
+**Why:** Sliders make the available score range visible while users adjust their preferences.
+
+**Other options:** Keep numeric input boxes.
+
+**Trade-off:** Sliders still need a visible value and server-side validation of submitted scores.
+
+## 012 - Integrate tutor matching through the dashboard
 
 **Date:** 2026-11-13
 
@@ -134,14 +146,14 @@ These entries record implemented decisions. Reasons and alternatives were writte
 
 **Trade-off:** New keys can shift vector positions, so vectors must be rebuilt together for each request. Tutors without a score need explicit handling.
 
-## 012 - Use sliders for preference scores
+## 013 - Resolve conversation usernames through the users service
 
 **Date:** 2026-11-13
 
-**Decision:** Use sliders instead of numeric input boxes to collect learning and teaching preference scores from 0 to 10.
+**Decision:** Resolve conversation participant usernames through the users service when displaying messages rather than user ids. Keep participant IDs in the messaging database.
 
-**Why:** Sliders make the available score range visible while users adjust their preferences.
+**Why:** IDs remain stable while displayed usernames come from the authoritative source.
 
-**Other options:** Keep numeric input boxes.
+**Other options:** Store username snapshots in messaging, or add a batch lookup endpoint.
 
-**Trade-off:** Sliders still need a visible value and server-side validation of submitted scores.
+**Trade-off:** Each distinct participant requires a lookup per page request, adding latency and a dependency on the users service. Inaccessible profiles show "Unavailable user"; other lookup failures prevent the page from loading.

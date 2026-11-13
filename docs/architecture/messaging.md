@@ -71,8 +71,8 @@ Content-Type: application/json
 X-Dashboard-Signature: <signature>
 ```
 
-The request body must contain the current user and usernames for all chat
-participants:
+The request body contains the current user and may include known participant
+usernames:
 
 ```json
 {
@@ -89,9 +89,12 @@ participants:
 }
 ```
 
-`user.status` must be `active`, and `user.roles` must be a non-empty array.
-The `users` object maps participant IDs to usernames so messaging can display
-names without calling the user service for every message.
+`user.status` must be `active`. The optional `users` object maps participant
+IDs to usernames. For conversation lists, the dashboard resolves each distinct
+participant through the authenticated `GET /users/{id}` profile endpoint and
+uses the returned username for the list and message pane. A participant whose
+profile is no longer accessible is shown as "Unavailable user"; other lookup
+failures prevent the page from loading.
 
 ## Request signature
 

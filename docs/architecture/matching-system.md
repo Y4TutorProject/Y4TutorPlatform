@@ -92,20 +92,19 @@ format. Examples include:
 
 Unexpected errors return status `500` with an error message.
 
-## Service flow
+## Architecture diagram
 
-```text
-Student preferences
-        |
-        v
-Dashboard service
-        |
-        v
-Matching service
-        |
-        v
-Cosine similarity ranking
-        |
-        v
-Tutor IDs and similarity scores
+```mermaid
+flowchart TD
+    request[Recommendation request: student vector and tutor vectors] --> api[Flask API: POST /get-recommendations]
+    api --> validate{Request data valid?}
+    validate -->|No| badRequest[400 error response]
+    validate -->|Yes| search[vector_search]
+    search --> similarity[Calculate cosine similarity for each tutor]
+    similarity --> rank[Convert scores to percentages and sort descending]
+    rank --> response[Return ranked tutor IDs and scores]
+    health[GET /health or /ready] --> healthResponse[Return service status]
 ```
+
+The service ranks only the vectors supplied in each request. It does not retrieve
+or persist preference data.
