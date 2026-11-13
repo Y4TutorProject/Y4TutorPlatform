@@ -295,3 +295,70 @@ def test_message_tutor_opens_another_users_chat(frontend, monkeypatch):
     assert 'data-open-chat-id="chat-1"' in response.text
     assert [path for path,_ in calls]==['/mychats/new','/mychats/me']
     assert calls[0][1]['otherUserId']=='another-tutor'
+
+
+@pytest.mark.parametrize("path", ["/messages", "/getmessages?user_id=tutor-1&username=old-name"])
+def test_conversations_show_current_usernames(frontend, monkeypatch, path):
+    app, client = frontend
+    requested = []
+
+    def upstream(request, timeout):
+        requested.append(request.full_url)
+        assert request.get_header("Cookie") == "tutor_session=signed-session"
+        if request.full_url.endswith("/users/me"):
+            return json_response({"user": {
+                "id": "me", "username": "Me", "email_verified": True,
+            }})
+        if request.full_url.endswith("/users/tutor-1"):
+            return json_response({"user": {"id": "tutor-1", "username": "Tutor & friend"}})
+        raise HTTPError(request.full_url, 404, "Not found", {}, None)
+
+    class Reply:
+        ok = True
+        def __init__(self, payload):
+            self.payload = payload
+        def json(self):
+            return self.payload
+
+    def messaging(client, endpoint, payload):
+        if endpoint == "/mychats/new":
+            return Reply({"chatId": "chat-1"})
+        return Reply({"chats": [
+            {"chatId": "chat-1", "otherUserId": "tutor-1", "displayName": "tutor-1"},
+            {"chatId": "chat-2", "otherUserId": "tutor-1", "displayName": "tutor-1"},
+            {"chatId": "chat-3", "otherUserId": "missing", "displayName": "missing"},
+        ]})
+
+    monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
+    monkeypatch.setattr("routes.messaging.messaging_post", messaging)
+    response = client.get(path)
+
+    assert response.status_code == 200
+    assert response.text.count('data-display-name="Tutor &amp; friend"') == 2
+    assert 'data-display-name="Unavailable user"' in response.text
+    assert 'data-display-name="tutor-1"' not in response.text
+    assert requested.count("http://users.test/users/tutor-1") == 1
+    assert requested.count("http://users.test/users/missing") == 1
+
+
+def test_conversations_report_username_lookup_failure(frontend, monkeypatch):
+    app, client = frontend
+
+    def upstream(request, timeout):
+        if request.full_url.endswith("/users/me"):
+            return json_response({"user": {
+                "id": "me", "username": "Me", "email_verified": True,
+            }})
+        raise URLError("unavailable")
+
+    class Reply:
+        ok = True
+        def json(self):
+            return {"chats": [{"chatId": "chat-1", "otherUserId": "tutor-1"}]}
+
+    monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
+    monkeypatch.setattr("routes.messaging.messaging_post", lambda *args: Reply())
+    response = client.get("/messages")
+
+    assert response.status_code == 502
+    assert "Could not load conversation usernames" in response.text

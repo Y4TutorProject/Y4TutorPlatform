@@ -7,6 +7,10 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='profile.css') }}">
 {% endblock %}
 {% block dashboard_content %}
+{% set is_tutor = active_role == 'tutor' %}
+{% set preference_kind = 'teaching' if is_tutor else 'learning' %}
+{% set preference_scores = user.teaching_preferences if is_tutor else user.preferences %}
+{% set preference_completed = user.teaching_preferences_completed if is_tutor else user.preferences_completed %}
 <div class="profile-shell">
   <header class="profile-heading">
     <h1 id="form-title">Your profile</h1>
@@ -33,19 +37,19 @@
       <section class="profile-card" aria-labelledby="preferences-title">
         <div class="profile-section-heading">
           <div>
-            <h2 id="preferences-title">Learning preferences</h2>
+            <h2 id="preferences-title">{{ preference_kind | capitalize }} preferences</h2>
           </div>
           <span class="profile-scale">0–10 scale</span>
         </div>
-        {% if user.preferences_completed is not sameas false and user.preferences %}
+        {% if preference_completed is not sameas false and preference_scores %}
         <div class="profile-preferences">
           {% for key, label, description in [
-            ('visual', 'Visual', 'Pictures, diagrams and demonstrations'),
-            ('auditory', 'Auditory', 'Explanations and discussions'),
-            ('reading_writing', 'Reading and writing', 'Reading, notes and written explanations'),
-            ('kinesthetic', 'Hands-on', 'Practical exercises and activities')
+            ('visual', 'Visual', 'Teaching with pictures, diagrams and demonstrations' if is_tutor else 'Pictures, diagrams and demonstrations'),
+            ('auditory', 'Auditory', 'Teaching through explanations and discussions' if is_tutor else 'Explanations and discussions'),
+            ('reading_writing', 'Reading and writing', 'Teaching through reading, notes and written explanations' if is_tutor else 'Reading, notes and written explanations'),
+            ('kinesthetic', 'Hands-on', 'Teaching through practical exercises and activities' if is_tutor else 'Practical exercises and activities')
           ] %}
-          {% set score = user.preferences.get(key, 0) %}
+          {% set score = preference_scores.get(key, 0) %}
           <div class="profile-preference">
             <div class="profile-preference-label"><h3>{{ label }}</h3><span>{{ score }}<span class="profile-score-max"> / 10</span></span></div>
             <p>{{ description }}</p>
@@ -55,12 +59,12 @@
         </div>
         {% else %}
         <div class="profile-empty">
-          <h3>No learning preferences set.</h3>
+          <h3>No {{ preference_kind }} preferences set.</h3>
           <p>Rate each approach from 0 to 10.</p>
         </div>
         {% endif %}
         <div class="profile-card-footer">
-          <a class="profile-button" href="/preferences">{{ 'Set up' if user.preferences_completed is sameas false else 'Edit' }} your learning preferences</a>
+          <a class="profile-button" href="/preferences{{ '?type=teaching' if is_tutor else '' }}">{{ 'Set up' if preference_completed is sameas false else 'Edit' }} your {{ preference_kind }} preferences</a>
         </div>
       </section>
     </div>
