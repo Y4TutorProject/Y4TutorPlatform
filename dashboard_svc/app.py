@@ -10,7 +10,6 @@ from users_client import create_opener
 import logging
 from flask_wtf.csrf import CSRFProtect
 
-logger = logging.getLogger(__name__)
 
 
 def create_app(config=None):
