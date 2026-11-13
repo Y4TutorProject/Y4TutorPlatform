@@ -16,6 +16,7 @@ notification_svc/notification_db_data/
 /.venv-docs
 /.venv-matching
 /site/
+/node_modules/
 /htmlcov/
 /.coverage
 /coverage.xml

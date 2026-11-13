@@ -4,11 +4,12 @@ Update the relevant page when a route, setting or user flow changes. Keep the do
 
 ## Preview and check
 
-From the repository root:
+Install Node.js 20 or later, then from the repository root:
 
 ```sh
 python3.12 -m venv .venv-docs
 .venv-docs/bin/python -m pip install -r requirements-docs.txt
+npm ci
 .venv-docs/bin/python -m mkdocs serve
 ```
 
@@ -18,13 +19,13 @@ Open <http://127.0.0.1:8000>. Run the checks before committing:
 .venv-docs/bin/python scripts/check_docs.py
 ```
 
-This checks source formatting, Markdown, YAML and local links, runs the link-checker tests, and builds MkDocs in strict mode. Output goes to the ignored `site/` directory. To use another directory:
+This checks source formatting, Markdown, YAML, Mermaid syntax and local links, runs the checker tests, and builds MkDocs in strict mode. Output goes to the ignored `site/` directory. To use another directory:
 
 ```sh
 .venv-docs/bin/python scripts/check_docs.py --site-dir /tmp/tutorplatform-docs
 ```
 
-Check external links, command examples and rendered diagrams separately.
+Check external links, command examples and rendered diagrams separately. Mermaid syntax validation does not check diagram appearance or whether arrows reflect the implementation.
 
 ## Branch and review
 
