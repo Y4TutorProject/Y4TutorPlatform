@@ -1,47 +1,62 @@
-from flask import current_app
-from urllib.request import Request
-from users_client import session_headers
 import json
+import math
+from collections.abc import Mapping
+from urllib.request import Request
 
-def preference_to_vector(student_prefs: dict, tutors: list[dict]) -> dict:
-    """
-    converts student and tutor preferences into vector representations for matching system
-    
-    Args:
-        student_prefs (dict): dictionary containing student's preferences - {"preference_name": value}
-        tutors (list[dict]): list of tutors with their teaching preferences - [{"tutor_id": {"teaching_preferences": {...}}}]
-    
-    Returns:        
-        dict: payload containing student vector and candidate vectors
-    """
-    tutor_items = [next(iter(t.items())) for t in tutors]
-    try:
-        feature_order = sorted(
-            set(student_prefs).union(*(prefs for _, prefs in tutor_items))
-        )
+from flask import current_app
 
-        def vec(prefs: dict) -> list[float]:
-            """Convert a preference dictionary into a vector based on the feature order."""
-            return [float(prefs.get(k, 0.0)) for k in feature_order]
+from users_client import session_headers
 
-        request_body = {
-            "student_vector": vec(student_prefs),
-            "tutors": {
-                tutor_id: vec(prefs)
-                for tutor_id, prefs in tutor_items
-            },
-        } 
-        return get_recommendations(request_body)    
-    except Exception as e:
-        current_app.logger.error("Matcher -> %s: %s", getattr(e, "code", "N/A"), getattr(e, "read", lambda: b"")().decode("utf-8", errors="replace"))
-        raise
 
-def get_recommendations(request_body) -> dict:
+def _finite_float(value) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("Preference values must be numbers")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("Preference values must be finite")
+    return number
+
+
+def _clean(prefs) -> dict[str, float]:
+    if not isinstance(prefs, Mapping):
+        raise ValueError("Preferences must be an object")
+    return {str(k): _finite_float(v) for k, v in prefs.items()}
+
+
+def build_payload(student_prefs, tutors: list[dict]) -> dict:
+    """tutors: [{tutor_id: {pref: value}}, ...]"""
+    student = _clean(student_prefs)
+
+    tutor_items = []
+    for t in tutors:
+        tutor_id, prefs = next(iter(t.items()))
+        if not tutor_id:
+            raise ValueError("Tutor ID is missing")
+        tutor_items.append((tutor_id, _clean(prefs)))
+
+    feature_order = sorted(set(student).union(*(p for _, p in tutor_items)))
+
+    def vec(prefs):
+        return [prefs.get(k, 0.0) for k in feature_order]
+
+    return {
+        "student_vector": vec(student),
+        "tutors": {tid: vec(p) for tid, p in tutor_items},
+    }
+
+
+def get_recommendations(payload: dict):
     req = Request(
         current_app.config["MATCHING_API_URL"].rstrip("/") + "/get-recommendations",
-        data=json.dumps(request_body).encode("utf-8"),
+        data=json.dumps(payload, allow_nan=False).encode("utf-8"),
         headers={**session_headers(), "Content-Type": "application/json"},
         method="POST",
     )
     with current_app.extensions["users_opener"].open(req, timeout=5) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def get_similarity_scores(student_prefs, tutors: list[dict]) -> dict[str, float]:
+    """Returns {tutor_id: similarity}."""
+    results = get_recommendations(build_payload(student_prefs, tutors))
+    return {tutor_id: similarity for tutor_id, similarity in results}

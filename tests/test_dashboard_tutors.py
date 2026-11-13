@@ -13,6 +13,7 @@ def frontend(monkeypatch):
         "TESTING": True,
         "USERS_API_URL": "http://users.test",
         "LMS_API_URL": "http://lms.test",
+        "MATCHING_API_URL": "http://matching.test",
     })
     client = app.test_client()
     client.set_cookie("tutor_session", "signed-session")
@@ -94,10 +95,13 @@ def test_get_tutors_returns_profiles(frontend, monkeypatch, tutor_ids):
             return json_response({"user": {"email_verified": True}})
         if request.full_url == "http://lms.test/students/me/modules/module-1/tutors":
             return json_response({"tutor_ids": tutor_ids})
+        if request.full_url == "http://matching.test/get-recommendations":
+            payload = json.loads(request.data.decode())
+            return json_response([[tutor_id, 42] for tutor_id in payload["tutors"]])
         tutor_id = request.full_url.removeprefix("http://users.test/users/")
         assert tutor_id in tutor_ids
         return json_response({"user": {
-            "id": tutor_id, "username": tutor_id, "preferences": {"visual": 5},
+            "id": tutor_id, "username": tutor_id, "teaching_preferences": {"visual": 5},
         }})
 
     monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
@@ -105,13 +109,19 @@ def test_get_tutors_returns_profiles(frontend, monkeypatch, tutor_ids):
 
     assert response.status_code == 200
     assert response.json == {"tutors": [
-        {"id": tutor_id, "username": tutor_id, "preferences": {"visual": 5}}
+        {
+            "id": tutor_id,
+            "username": tutor_id,
+            "teaching_preferences": {"visual": 5},
+            "similarity": 42.0,
+        }
         for tutor_id in tutor_ids
     ]}
     assert requested == [
         "http://users.test/users/me",
         "http://lms.test/students/me/modules/module-1/tutors",
         *[f"http://users.test/users/{tutor_id}" for tutor_id in tutor_ids],
+        "http://matching.test/get-recommendations",
     ]
 
 
@@ -155,6 +165,41 @@ def test_get_tutors_rejects_malformed_profile(frontend, monkeypatch):
         if request.full_url.startswith("http://lms.test/"):
             return json_response({"tutor_ids": ["tutor-1"]})
         return json_response({"user": None})
+
+    monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
+    assert client.get("/get_tutors?module_id=module-1").status_code == 502
+
+
+def test_get_tutors_returns_502_when_matching_service_is_unavailable(frontend, monkeypatch, caplog):
+    app, client = frontend
+
+    def upstream(request, timeout):
+        if request.full_url.endswith("/users/me"):
+            return json_response({"user": {"id": "student-1", "email_verified": True}})
+        if request.full_url.startswith("http://lms.test/"):
+            return json_response({"tutor_ids": ["tutor-1"]})
+        if request.full_url == "http://users.test/users/tutor-1":
+            return json_response({"user": {"id": "tutor-1", "username": "Private Name"}})
+        raise URLError("unavailable")
+
+    monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
+    response = client.get("/get_tutors?module_id=module-1")
+
+    assert response.status_code == 502
+    assert "temporarily unavailable" in response.text
+    assert "Tutor matching failed (URLError)" in caplog.text
+    assert "Private Name" not in caplog.text
+
+
+def test_get_tutors_rejects_profile_for_a_different_user(frontend, monkeypatch):
+    app, client = frontend
+
+    def upstream(request, timeout):
+        if request.full_url.endswith("/users/me"):
+            return json_response({"user": {"email_verified": True}})
+        if request.full_url.startswith("http://lms.test/"):
+            return json_response({"tutor_ids": ["tutor-1"]})
+        return json_response({"user": {"id": "different-user"}})
 
     monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
     assert client.get("/get_tutors?module_id=module-1").status_code == 502
@@ -208,6 +253,8 @@ def test_tutor_results_exclude_the_signed_in_user(frontend, monkeypatch):
             return json_response({'user': {'id': 'me', 'email_verified': True}})
         if request.full_url.startswith('http://lms.test/'):
             return json_response({'tutor_ids': ['me', 'another-tutor']})
+        if request.full_url == 'http://matching.test/get-recommendations':
+            return json_response([['another-tutor', 75]])
         assert request.full_url == 'http://users.test/users/another-tutor'
         return json_response({'user': {'id': 'another-tutor', 'username': 'Tutor'}})
     monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)

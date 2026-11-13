@@ -5,12 +5,8 @@ from urllib.parse import quote
 from flask import Blueprint, abort, current_app, g, redirect, render_template, request
 
 from clean_text import clean_deep
+from process_preferences import get_similarity_scores
 from users_client import login_required, open_upstream, upstream_request
-from process_preferences import preference_to_vector
-
-import logging
-
-logger = logging.getLogger(__name__)    
 
 
 bp = Blueprint("student", __name__)
@@ -32,8 +28,16 @@ def render_student_dashboard(user, can_manage_college):
         error.close()
         if error.code == 401:
             return redirect("/login")
+        current_app.logger.warning(
+            "Student dashboard LMS lookup failed with upstream HTTP status %s",
+            error.code,
+        )
         moodle_error = MOODLE_PROFILE_MISSING if error.code == 404 else MOODLE_UNAVAILABLE
-    except (URLError, OSError, ValueError):
+    except (URLError, OSError, ValueError) as error:
+        current_app.logger.warning(
+            "Student dashboard LMS lookup failed (%s)",
+            type(error).__name__,
+        )
         moodle_error = MOODLE_UNAVAILABLE
 
     if moodle and moodle.get('lecturer_modules'):
@@ -59,16 +63,7 @@ def render_student_dashboard(user, can_manage_college):
 @bp.get("/get_tutors")
 @login_required
 def get_tutors():
-    """Fetch the list of tutors for a given module.
-
-    Raises:
-        ValueError: If the LMS returns an invalid tutor list or profile.
-        HTTPError: If the upstream LMS or USERS API returns an HTTP error.
-        URLError: If there is a network-related error when contacting the upstream APIs.
-
-    Returns:
-        dict: A dictionary, "tutors", with the list of tutors
-    """
+    """Fetch and rank tutors for a given module."""
     module_id = request.args.get("module_id")
     if not module_id:
         abort(400, "Missing module_id parameter")
@@ -90,24 +85,40 @@ def get_tutors():
                 profile = clean_deep(json.load(response))
             if not isinstance(profile, dict) or not isinstance(profile.get("user"), dict):
                 raise ValueError("Invalid tutor profile")
-            current_app.logger.info(profile)
-            tutors.append(profile["user"])
+            tutor = profile["user"]
+            if tutor.get("id") != tutor_id:
+                raise ValueError("Tutor profile ID does not match the requested ID")
+            tutors.append(tutor)
     except HTTPError as error:
         error.close()
         current_app.logger.warning("Tutor lookup failed with upstream HTTP status %s", error.code)
         abort(502, "Failed to fetch tutors")
     except (URLError, OSError, ValueError) as error:
-        current_app.logger.warning("Tutor lookup failed: %s", error)
+        current_app.logger.warning("Tutor lookup failed (%s)", type(error).__name__)
         abort(502, "Failed to fetch tutors")
-    stud_prefs = g.user.get("preferences", {})
-    tutor_prefs = [{t.get('id'): t.get("teaching_preferences", {})} for t in tutors]
- 
-    vecs = preference_to_vector(stud_prefs, tutor_prefs)
-    scores = {userid: similarity for userid, similarity in vecs}
-    #  add similarity scores to each tutor object
+
+    student_preferences = g.user.get("preferences", {})
+    tutor_preferences = [
+        {tutor["id"]: tutor.get("teaching_preferences", {})}
+        for tutor in tutors
+    ]
+    try:
+        scores = get_similarity_scores(student_preferences, tutor_preferences)
+    except HTTPError as error:
+        error.close()
+        current_app.logger.warning(
+            "Tutor matching failed with upstream HTTP status %s",
+            error.code,
+        )
+        scores = {}
+    except (URLError, OSError, ValueError) as error:
+        current_app.logger.warning(
+            "Tutor matching failed (%s)",
+            type(error).__name__,
+        )
+        scores = {}
+
     for tutor in tutors:
-        tutor["similarity"] = scores.get(tutor.get("id"))
-    #  sort by similarity in descending order
+        tutor["similarity"] = scores.get(tutor["id"])
     tutors.sort(key=lambda t: t["similarity"] if t["similarity"] is not None else -1, reverse=True)
-    logger.warning("Sorted tutors by similarity: %s", tutors)
     return {"tutors": tutors}
