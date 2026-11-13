@@ -20,5 +20,3 @@ A college peer-tutoring prototype built with Flask services, MongoDB and Docker 
 - [Documentation workflow](development/docs-workflow.md)
 
 ## Current limits
-
-
