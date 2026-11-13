@@ -35,6 +35,7 @@
 
 - Added API, college registration and email verification guides.
 - Documented LMS setup, scheduled imports and academic storage.
+- Created the matching system, messaging and notification documentation.
 
 ## 2026-10-21 to 2026-10-22
 
