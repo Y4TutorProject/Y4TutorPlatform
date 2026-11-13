@@ -6,6 +6,12 @@ from flask import Blueprint, abort, current_app, g, redirect, render_template, r
 
 from clean_text import clean_deep
 from users_client import login_required, open_upstream, upstream_request
+from process_preferences import preference_to_vector
+
+import logging
+
+logger = logging.getLogger(__name__)    
+
 
 bp = Blueprint("student", __name__)
 
@@ -15,7 +21,6 @@ MOODLE_PROFILE_MISSING = (
     "administrator to check that your verified email matches "
     "Moodle and that the college has synchronized."
 )
-
 
 def render_student_dashboard(user, can_manage_college):
     moodle = None
@@ -54,10 +59,21 @@ def render_student_dashboard(user, can_manage_college):
 @bp.get("/get_tutors")
 @login_required
 def get_tutors():
+    """Fetch the list of tutors for a given module.
+
+    Raises:
+        ValueError: If the LMS returns an invalid tutor list or profile.
+        HTTPError: If the upstream LMS or USERS API returns an HTTP error.
+        URLError: If there is a network-related error when contacting the upstream APIs.
+
+    Returns:
+        dict: A dictionary, "tutors", with the list of tutors
+    """
     module_id = request.args.get("module_id")
     if not module_id:
         abort(400, "Missing module_id parameter")
     tutors_path = f"/students/me/modules/{quote(module_id, safe='')}/tutors"
+    
     try:
         tutors = []
         with open_upstream(upstream_request("LMS_API_URL", tutors_path)) as response:
@@ -74,6 +90,7 @@ def get_tutors():
                 profile = clean_deep(json.load(response))
             if not isinstance(profile, dict) or not isinstance(profile.get("user"), dict):
                 raise ValueError("Invalid tutor profile")
+            current_app.logger.info(profile)
             tutors.append(profile["user"])
     except HTTPError as error:
         error.close()
@@ -82,4 +99,15 @@ def get_tutors():
     except (URLError, OSError, ValueError) as error:
         current_app.logger.warning("Tutor lookup failed: %s", error)
         abort(502, "Failed to fetch tutors")
+    stud_prefs = g.user.get("preferences", {})
+    tutor_prefs = [{t.get('id'): t.get("teaching_preferences", {})} for t in tutors]
+ 
+    vecs = preference_to_vector(stud_prefs, tutor_prefs)
+    scores = {userid: similarity for userid, similarity in vecs}
+    #  add similarity scores to each tutor object
+    for tutor in tutors:
+        tutor["similarity"] = scores.get(tutor.get("id"))
+    #  sort by similarity in descending order
+    tutors.sort(key=lambda t: t["similarity"] if t["similarity"] is not None else -1, reverse=True)
+    logger.warning("Sorted tutors by similarity: %s", tutors)
     return {"tutors": tutors}

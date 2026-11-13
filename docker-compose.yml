@@ -168,9 +168,10 @@ services:
       - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       - USERS_API_URL=http://gateway/api/users
-      - COLLEGE_API_URL=http://college_svc:5000
-      - MESSAGING_API_URL=http://messaging_svc:5000
+      - COLLEGE_API_URL=http://gateway/api/college
+      - MESSAGING_API_URL=http://gateway/api/messaging
       - LMS_API_URL=http://gateway/api/lms
+      - MATCHING_API_URL=http://gateway/api/matching
       - SESSION_SECRET=${SESSION_SECRET}
     depends_on:
       users_svc:

@@ -1,4 +1,5 @@
 import json
+import re
 from io import BytesIO
 
 import pytest
@@ -41,6 +42,23 @@ def test_teaching_page_uses_teaching_scores(frontend):
     assert 'data-kind="teaching"' in html and 'data-onboarding="false"' in html
     assert 'value="3"' in html and 'value="9"' not in html
     assert "Teaching with pictures" in html
+
+
+@pytest.mark.parametrize("kind", ["learning", "teaching"])
+def test_preference_ratings_are_sliders_with_current_values(frontend, kind):
+    client, serve = frontend
+    serve({"roles": ["tutor"], "preferences": {"visual": 9},
+           "teaching_preferences": {"visual": 3}})
+    html = client.get(f"/preferences?type={kind}").get_data(as_text=True)
+    expected = 9 if kind == "learning" else 3
+    for key in ("visual", "auditory", "reading_writing", "kinesthetic"):
+        slider = re.search(rf'<input id="preference-{key}"[^>]+>', html).group()
+        assert f'name="{key}"' in slider
+        assert 'type="range"' in slider
+        assert 'min="0"' in slider and 'max="10"' in slider and 'step="1"' in slider
+        score = expected if key == "visual" else 0
+        assert f'value="{score}"' in slider
+        assert f'<span id="value-{key}">{score}</span>' in html
 
 
 @pytest.mark.parametrize("completed,expected", [(False, "true"), (True, "false")])

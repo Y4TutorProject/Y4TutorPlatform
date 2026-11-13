@@ -360,6 +360,12 @@ function setupPreferences() {
   const form = document.getElementById("preferences-form");
   const kind = form.dataset.kind in PREFERENCE_ENDPOINTS ? form.dataset.kind : "learning";
   const button = form.querySelector('button[type="submit"]');
+  const keys = ["visual", "auditory", "reading_writing", "kinesthetic"];
+  for (const key of keys) {
+    const slider = form.elements[key];
+    const value = document.getElementById(`value-${key}`);
+    slider.addEventListener("input", () => { value.textContent = slider.value; });
+  }
   form.addEventListener("submit", async event => {
     event.preventDefault();
     if (button.disabled || !form.reportValidity()) return;
@@ -367,7 +373,7 @@ function setupPreferences() {
     form.setAttribute("aria-busy", "true");
     showStatus("Saving preferences…");
     const preferences = {};
-    for (const key of ["visual", "auditory", "reading_writing", "kinesthetic"]) {
+    for (const key of keys) {
       preferences[key] = Number(form.elements[key].value);
     }
     try {

@@ -9,17 +9,22 @@ function screen({ onboarding = true, admin = false, failure = null, kind = null 
   const calls = [];
   const status = { focus() {} };
   const button = { disabled: false };
+  const values = {};
   const form = {
     dataset: { onboarding: String(onboarding), ...(kind && { kind }) }, events: {},
     elements: Object.fromEntries(["visual", "auditory", "reading_writing", "kinesthetic"]
-      .map((key, index) => [key, { value: String(index ? 10 : 0) }])),
+      .map((key, index) => {
+        values[`value-${key}`] = { textContent: String(index ? 10 : 0) };
+        return [key, { value: String(index ? 10 : 0), events: {},
+          addEventListener(event, callback) { this.events[event] = callback; } }];
+      })),
     querySelector() { return button; }, reportValidity() { return true; },
     setAttribute() {}, removeAttribute() {},
     addEventListener(event, callback) { this.events[event] = callback; },
   };
   const context = vm.createContext({
     document: { body: { dataset: { page: "preferences" } },
-      getElementById(id) { return id === "form-status" ? status : form; } },
+      getElementById(id) { return id === "form-status" ? status : id === "preferences-form" ? form : values[id]; } },
     window: { location: { assign(url) { redirects.push(url); }, replace(url) { redirects.push(url); } } },
     fetch: async (url, options) => {
       calls.push({ url, options });
@@ -30,8 +35,18 @@ function screen({ onboarding = true, admin = false, failure = null, kind = null 
     },
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../frontend_shared/static/auth.js"), "utf8"), context);
-  return { redirects, calls, status, button, submit: () => form.events.submit({ preventDefault() {} }) };
+  return { redirects, calls, status, button, values, form,
+    submit: () => form.events.submit({ preventDefault() {} }) };
 }
+
+test("Moving a slider updates its displayed value and submitted rating", async () => {
+  const ui = screen();
+  ui.form.elements.visual.value = "7";
+  ui.form.elements.visual.events.input();
+  assert.equal(ui.values["value-visual"].textContent, "7");
+  await ui.submit();
+  assert.equal(JSON.parse(ui.calls[1].options.body).preferences.visual, 7);
+});
 
 test("Onboarding saves all four numeric ratings with CSRF and continues to dashboard", async () => {
   const ui = screen();
