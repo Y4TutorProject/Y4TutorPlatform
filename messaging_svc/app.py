@@ -200,6 +200,7 @@ def create_app(config=None):
             return jsonify({"error": "Chat not found"}), 404
         return jsonify(load_chat_messages(chat_id))
 
+
     @app.route("/mychats/chat/<chat_id>/read", methods=["POST"])
     def mark_chat_read_route(chat_id: str):
         user_id = session.get("user")
