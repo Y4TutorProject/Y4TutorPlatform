@@ -517,6 +517,33 @@ paths:
         schema:
           type: string
           format: uuid
+  /api/matching/get-recommendations:
+    post:
+      tags:
+      - Matching
+      summary: Get tutor recommendations based on student preferences
+      operationId: getMatchingRecommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchingRequest'
+      responses:
+        '200':
+          description: Recommendations returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /:
     get:
       tags:

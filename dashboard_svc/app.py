@@ -24,6 +24,7 @@ def create_app(config=None):
     app.config["USERS_API_URL"] = os.getenv("USERS_API_URL", "http://gateway/api/users")
     app.config["LMS_API_URL"] = os.getenv("LMS_API_URL", "http://gateway/api/lms")
     app.config["MESSAGING_API_URL"] = os.getenv("MESSAGING_API_URL", "http://gateway/api/messaging")
+    app.config["MATCHING_API_URL"] = os.getenv("MATCHING_API_URL", "http://gateway/api/matching")
     app.config["DASHBOARD_SHARED_SECRET"] = os.getenv("DASHBOARD_SHARED_SECRET")
     app.config["SECRET_KEY"] = os.getenv("SESSION_SECRET")
     if config:

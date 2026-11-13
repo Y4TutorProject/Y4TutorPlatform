@@ -8,6 +8,7 @@ The dashboard serves as the frontend of the entire application (except login fun
 `users_client` - contains functionality for interacting with the user service, such as ensuring authentication and cookie forwarding between the dashboard and the user service.
 `messaging_client` - contains functionality for interacting with the messaging service, such building requests to the service and forwarding cookies
 `clean_text.py` - contains utility functions for cleaning and processing text data within the dashboard.
+`process_preferences.py` - contains utility functions for processing user learning and teaching preferences to be processed by the matching system.
 
 Templates - contains the HTML templates used by the dashboard for rendering the user interface.
 

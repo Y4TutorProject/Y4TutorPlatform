@@ -1,7 +1,7 @@
 import requests
-from flask import Blueprint, abort, current_app, g, redirect, render_template
+from flask import Blueprint, g, redirect, render_template
 
-from users_client import authenticated_user, login_required
+from users_client import login_required
 
 bp = Blueprint("auth", __name__)
 

@@ -5,7 +5,7 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 
-@app.route('/get-recommendations', methods=['GET'])
+@app.route('/get-recommendations', methods=['POST'])
 def get_recommendations():
     """
     Endpoint to get tutor recommendations based on a student's vector.
@@ -21,8 +21,7 @@ def get_recommendations():
     }
     Example response body:
     [
-        {"tutor_id": "user1", "similarity": 0.9959940002745983},
-        {"tutor_id": "user3", "similarity": 0.9876543210987654}
+        [userid, similarity]
     ]
     """
     data = request.get_json()
@@ -35,7 +34,7 @@ def get_recommendations():
         
         tutors= data.get('tutors')
         if tutors is None:
-            return jsonify({'error': 'Missing tutors in request body'}), 400
+            return jsonify({'error': 'Missing tutors in reqquest body'}), 400
         if not isinstance(tutors, dict):
             return jsonify({'error': 'tutors must be a dictionary'}), 400
         if not all(isinstance(v, list) for v in tutors.values()):

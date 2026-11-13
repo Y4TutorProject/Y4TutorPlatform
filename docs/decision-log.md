@@ -121,3 +121,27 @@ These entries record implemented decisions. Reasons and alternatives were writte
 **Other options:** Style each page separately, or keep the default Bootstrap appearance.
 
 **Trade-off:** Shared CSS changes need checking across roles and screens.
+
+## 011 - Integrate tutor matching through the dashboard
+
+**Date:** 2026-11-13
+
+**Decision:** Build vectors in the dashboard using sorted preference keys, defaulting missing values to 0. Send them to the matching system using a POST request, then look up scores by tutor ID and sort tutors by similarity.
+
+**Why:** The matching service stays independent. Sorted keys align vector dimensions, and an ID lookup avoids a nested search.
+
+**Other options:** Send preference dictionaries to the matcher, or merge scores using a nested loop.
+
+**Trade-off:** New keys can shift vector positions, so vectors must be rebuilt together for each request. Tutors without a score need explicit handling.
+
+## 012 - Use sliders for preference scores
+
+**Date:** 2026-11-13
+
+**Decision:** Use sliders instead of numeric input boxes to collect learning and teaching preference scores from 0 to 10.
+
+**Why:** Sliders make the available score range visible while users adjust their preferences.
+
+**Other options:** Keep numeric input boxes.
+
+**Trade-off:** Sliders still need a visible value and server-side validation of submitted scores.

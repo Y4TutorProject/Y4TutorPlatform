@@ -22,6 +22,12 @@ document.addEventListener("DOMContentLoaded", function () {
         results.replaceChildren(state);
     }
 
+    // Badge showing the match percentage, coloured green (high), yellow (medium) or red (low)
+    function matchBadge(similarity) {
+        const tier = similarity >= 70 ? "high" : similarity >= 30 ? "medium" : "low";
+        return element("span", `match-badge match-${tier}`, `${similarity}% match`);
+    }
+
     // Create a card element for a tutor with their details and messaging option
     function tutorCard(tutor) {
         const card = element("article", "tutor-card");
@@ -32,6 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const identity = element("div", "tutor-identity");
         identity.append(element("h3", "tutor-name", name));
         header.append(avatar, identity);
+        if (typeof tutor.similarity === "number") header.append(matchBadge(tutor.similarity));
 
         const preferences = element("div", "tutor-preferences");
         preferences.append(element("p", "preferences-label", "LEARNING PREFERENCES"));
