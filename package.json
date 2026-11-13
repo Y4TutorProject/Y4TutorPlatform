@@ -1,0 +1,11 @@
+{
+  "name": "tutorplatform-docs",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "mermaid": "12.3.0"
+  }
+}

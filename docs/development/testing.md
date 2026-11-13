@@ -8,7 +8,7 @@ Python tests cover service logic using mocked MongoDB, HTTP responses and email 
 .venv-docs/bin/python scripts/check_docs.py
 ```
 
-This runs formatting, Markdown, YAML, strict MkDocs and generated local-link checks.
+This runs formatting, Markdown, YAML, Mermaid syntax, strict MkDocs and generated local-link checks. Install Node.js 20 or later and run `npm ci` first; see the [documentation workflow](docs-workflow.md).
 
 ## Python service tests
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from html.parser import HTMLParser
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from urllib.parse import unquote, urlsplit
@@ -90,10 +91,16 @@ def main() -> int:
     if errors:
         print('\n'.join(errors), file=sys.stderr)
         return 1
+    node = shutil.which('node')
+    if node is None:
+        print('Node.js is required for Mermaid validation; install Node.js and run npm ci.', file=sys.stderr)
+        return 1
     for command in [
         [sys.executable, '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_docs_checks.py'],
+        [node, '--test', 'scripts/test_mermaid.mjs'],
         [sys.executable, '-m', 'pymarkdown', '--config', '.pymarkdown.json', 'scan', '-r', 'docs', 'README.md', '.github/pull_request_template.md'],
         [sys.executable, '-m', 'mkdocs', 'build', '--strict', '--site-dir', str(args.site_dir.resolve())],
+        [node, 'scripts/check_mermaid.mjs', str(args.site_dir.resolve())],
     ]:
         result = subprocess.run(command, cwd=ROOT, check=False)
         if result.returncode:
@@ -102,7 +109,7 @@ def main() -> int:
     if errors:
         print('\n'.join(errors), file=sys.stderr)
         return 1
-    print('Documentation checks passed: formatting, Markdown, YAML, strict build, local links and anchors.')
+    print('Documentation checks passed: formatting, Markdown, YAML, Mermaid, strict build, local links and anchors.')
     return 0
 
 
