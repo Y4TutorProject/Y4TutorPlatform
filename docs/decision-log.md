@@ -134,7 +134,6 @@ These entries record implemented decisions. Reasons and alternatives were writte
 
 **Trade-off:** Sliders still need a visible value and server-side validation of submitted scores.
 
-
 ## 012 - Integrate tutor matching through the dashboard
 
 **Date:** 2026-11-13
