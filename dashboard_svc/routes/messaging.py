@@ -3,15 +3,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 
 import requests
-from flask import Blueprint, abort, g, make_response, render_template, request
+from flask import abort, g, make_response, render_template, request, current_app, Blueprint
 
 from messaging_client import forward_messaging_cookie, messaging_post
 from users_client import login_required, open_upstream, upstream_request
-from logging import getLogger
 
-logger = getLogger(__name__)
+
 bp = Blueprint("messaging", __name__)
-
 
 def add_chat_usernames(chats):
     """Resolve participant names using the signed-in user's profile access."""
@@ -34,12 +32,12 @@ def add_chat_usernames(chats):
                 usernames[user_id] = user["username"]
             except HTTPError as error:
                 error.close()
-                logger.warning("Chat participant lookup failed with upstream HTTP status %s", error.code)
+                current_app.logger.warning("Chat participant lookup failed with upstream HTTP status %s", error.code)
                 if error.code != 404:
                     abort(502, "Could not load conversation usernames")
                 usernames[user_id] = "Unavailable user"
             except (URLError, OSError, ValueError) as error:
-                logger.warning("Chat participant lookup failed (%s)", type(error).__name__)
+                current_app.logger.warning("Chat participant lookup failed (%s)", type(error).__name__)
                 abort(502, "Could not load conversation usernames")
         chat["displayName"] = usernames[user_id]
     return chats
@@ -71,7 +69,7 @@ def render_chat_with(current, other):
         "users": {other["id"]: other["username"]},
         "otherUserId": other["id"],
     }
-    logger.warning("Creating chat with request body: %s", request_body) 
+    current_app.logger.warning("Creating chat with request body: %s", request_body) 
     client = requests.Session()
     response = messaging_post(client, "/mychats/new", request_body)
     if not response.ok:
