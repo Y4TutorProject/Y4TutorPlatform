@@ -10,6 +10,8 @@ Set these in `.env`, then run `docker compose up -d --build`:
 - `SECRET_KEY`: at least 32 random characters.
 - `SESSION_COOKIE_SECURE=false` for local HTTP; `true` with HTTPS.
 - `PUBLIC_BASE_URL=http://localhost:8080` for verification links.
+- `COLLEGE_SYNC_TOKEN`: the same service token used by the college and LMS services.
+- `LMS_API_URL`: the internal LMS API base URL; Compose sets `http://lms_svc:5000`.
 
 Generate a secret with:
 
@@ -59,7 +61,7 @@ Users (`/api/users`):
 - `POST /auth/verify` — session and CSRF check used by the college service.
 - `GET /users/me`
 - `POST /users/me/preferences` — saves all four learning preference ratings.
-- `POST /users/me/teaching_preferences` - saves all four teaching preference rating
+- `POST /users/me/teaching_preferences` - saves all four teaching preference ratings.
 - `POST /users/me/college` — links an administrator to their own college.
 
 POSTs need `X-CSRFToken` from the receiving service and its session cookie.
@@ -75,11 +77,37 @@ The dashboard service owns `/dashboard`, `/admin-dashboard`, `/account`, and
 `/preferences`, and `/choose-username`, including their templates and `/dashboard/static/` assets.
 `/dashboard` selects the college admin, student, or tutor view using roles returned
 by the users API. College admins see connection and synchronization settings;
-students see their Moodle information and four learning preference scores.
+students select a module to find tutors; tutors see teaching and learning preference cards.
 `/admin-dashboard` requires the `college_admin` role and a registered college.
 The users frontend serves `/login`; authentication and preference APIs remain in
 the users service. Both frontends preserve the session cookie and browser user
 agent when authenticating through the gateway.
+
+## Tutor account roles
+
+`users_svc/module_roles.py` checks module tutor membership for active accounts
+that do not already have the tutor role. It runs at login and when loading an
+account for an authenticated request, so approvals made before this feature
+also take effect without a new application.
+
+The users service sends a GET to the LMS service at
+`/internal/college/<college_id>/users/<user_id>/module-roles`, with
+`X-College-Sync-Token`. The endpoint requires the configured service token and
+checks tutor membership for that college and user. It returns `{"tutor": true}`
+when at least one matching membership has the tutor role; it does not call back
+to the users service to authenticate the request.
+
+A positive result atomically adds `tutor` to the account's roles, preserving
+`student` and other existing roles. A missing token, missing college or failed
+lookup leaves the account unchanged; student access remains available and a
+later authenticated request retries the lookup. Existing tutor accounts skip
+this check. This reconciliation only grants tutor access; it does not revoke an
+existing tutor role when memberships are removed.
+
+Users with both roles can switch dashboards through the navigation. The tutor
+dashboard requires teaching preference setup before entry. **My account** shows
+learning preferences for either active role; teaching preference editing is on
+the tutor dashboard at `/preferences?type=teaching`.
 
 ## Username selection
 

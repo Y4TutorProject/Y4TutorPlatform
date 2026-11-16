@@ -4,7 +4,7 @@ Update the relevant page when a route, setting or user flow changes. Keep the do
 
 ## Preview and check
 
-Install Node.js 20 or later, then from the repository root:
+Install Node.js 22.12 or later, then from the repository root:
 
 ```sh
 python3.12 -m venv .venv-docs

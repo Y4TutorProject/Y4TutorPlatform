@@ -44,6 +44,17 @@ Check the admin page's sync status. Check Moodle read permissions, URL, token, m
 
 After fixing the cause, select **Sync now**. Check the import time, module list and student view. Failed imports keep the previous successful catalogue.
 
+## Approved tutor cannot switch views
+
+1. Confirm the account has tutor membership for at least one module in its college.
+2. Check that `users_svc` and `lms_svc` have the same non-empty `COLLEGE_SYNC_TOKEN` and that `users_svc` can reach its `LMS_API_URL`.
+3. Recreate the affected services after changing environment values.
+4. Refresh an authenticated page or sign in again. The users service adds the account tutor role when the membership lookup succeeds.
+5. Select **Switch to tutor role**, or **Tutor** on mobile. Complete teaching preference setup if prompted.
+
+Failed membership lookups leave the student's access unchanged. The lookup retries
+on later authenticated requests; existing tutor roles are retained.
+
 ## Chat does not connect
 
 ```sh
