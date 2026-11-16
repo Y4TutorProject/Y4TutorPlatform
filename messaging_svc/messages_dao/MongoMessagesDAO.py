@@ -3,7 +3,7 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 from models.Chat import Chat
 from models.Message import Message
 from models.ChatReadState import ChatReadState
-
+from encrypt import encrypt, decrypt
 
 class MongoMessagesDAO:
     """MongoDB access for chats, messages, and per-user chat read state."""
@@ -62,7 +62,9 @@ class MongoMessagesDAO:
 
     @staticmethod
     def _message_to_document(message):
-        return message.to_dict()
+        document = message.to_dict()
+        document["message"] = encrypt(document["message"])
+        return document
 
     @staticmethod
     def _read_state_to_document(
@@ -81,7 +83,12 @@ class MongoMessagesDAO:
 
     @staticmethod
     def _message_from_document(data):
-        return Message(data) if data is not None else None
+        if data is None:
+            return None
+
+        document = dict(data)
+        document["message"] = decrypt(document["message"])
+        return Message(document)
 
     @staticmethod
     def _read_state_from_document(data):

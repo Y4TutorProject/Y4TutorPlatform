@@ -30,6 +30,24 @@ DASHBOARD_SHARED_SECRET
 The secret shared only by the dashboard backend and messaging service. Never
 expose this value to browser code.
 
+MESSAGING_KEY
+A base64-encoded 32-byte key used to encrypt message bodies stored in MongoDB.
+Generate it with:
+
+```sh
+python3 -c 'import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())'
+```
+
+Keep this key secret and backed up securely. Previously stored messages cannot
+be decrypted without the same key.
+
+## Message encryption
+
+Message bodies are encrypted with AES-256-GCM before being saved in the MongoDB
+messages collection, using a fresh random nonce for each message. They are
+decrypted when loaded by the messaging service. The `lastMessage` preview in
+MongoDB chat documents is currently stored as plaintext.
+
 ## Dashboard integration
 
 The dashboard authenticates the user with the user service, then sends the
