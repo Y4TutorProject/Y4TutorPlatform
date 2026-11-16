@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError
 from .users_dao.MongoUsersDAO import MongoUsersDAO
 from .users_svc import UsersService
 from .college_client import CollegeClient, CollegeServiceUnavailable
+from .module_roles import ModuleRolesClient, synchronize_tutor_role
 
 
 def create_app(config=None, dao=None):
@@ -38,6 +39,8 @@ def create_app(config=None, dao=None):
         SESSION_REFRESH_EACH_REQUEST=False,
         MAX_CONTENT_LENGTH=16 * 1024,
         COLLEGE_API_URL=os.getenv("COLLEGE_API_URL", "http://college_svc:5000"),
+        LMS_API_URL=os.getenv("LMS_API_URL", "http://lms_svc:5000"),
+        COLLEGE_SYNC_TOKEN=os.getenv("COLLEGE_SYNC_TOKEN", ""),
     )
     if config:
         app.config.update(config)
@@ -51,6 +54,8 @@ def create_app(config=None, dao=None):
     app.extensions["users_dao"] = dao
     app.extensions["users_service"] = UsersService(dao)
     app.extensions["college_client"] = CollegeClient(app.config["COLLEGE_API_URL"])
+    app.extensions['module_roles_client'] = ModuleRolesClient(
+        app.config['LMS_API_URL'], app.config['COLLEGE_SYNC_TOKEN'])
 
     CSRFProtect(app)
     login_manager = LoginManager()
@@ -68,7 +73,7 @@ def create_app(config=None, dao=None):
             User | None: Matching active user, or None if missing or inactive.
         """
         user = dao.get_user(user_id)
-        return user if user and user.is_active else None
+        return synchronize_tutor_role(app, user) if user and user.is_active else None
 
     @login_manager.unauthorized_handler
     def unauthorized():

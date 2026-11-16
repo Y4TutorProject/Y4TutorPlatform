@@ -25,7 +25,7 @@ Copy the example .env
 cp .env.example .env
 ```
 
-Generate a seperate value for each of the secret values `SECRET_KEY, DASHBOARD_SHARED_SECRET, COLLEGE_SYNC_TOKEN, INTERNAL_API_TOKEN`
+Generate a separate value for each of the secret values `SECRET_KEY, SESSION_SECRET, DASHBOARD_SHARED_SECRET, COLLEGE_SYNC_TOKEN, INTERNAL_API_TOKEN`. The dashboard requires `SESSION_SECRET` to save the selected role in its session.
 
 ```sh
 python3 -c 'import secrets; print(secrets.token_hex(32))'

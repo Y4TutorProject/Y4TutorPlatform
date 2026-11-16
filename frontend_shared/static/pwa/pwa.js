@@ -39,22 +39,6 @@
     await prompt.userChoice;
     installationChanged();
   });
-  const menu = document.querySelector('.platform-menu-toggle');
-  if (menu) {
-    document.querySelector('.platform-nav').classList.add('menu-ready');
-    menu.addEventListener('click', () => {
-      const open = menu.getAttribute('aria-expanded') !== 'true';
-      menu.setAttribute('aria-expanded', String(open));
-      document.querySelector('.platform-nav-actions').classList.toggle('is-open', open);
-    });
-    menu.closest('nav').addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        menu.setAttribute('aria-expanded', 'false');
-        document.querySelector('.platform-nav-actions').classList.remove('is-open');
-        menu.focus();
-      }
-    });
-  }
   // Wrap existing and dynamically rendered admin tables without clipping forms.
   function wrapTables() {
     document.querySelectorAll('main table').forEach(table => {

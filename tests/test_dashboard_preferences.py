@@ -109,12 +109,15 @@ def test_tutor_dashboard_shows_both_preference_sets(frontend):
     html = client.get("/dashboard").get_data(as_text=True)
     assert "Your learning preferences" in html and "Your teaching preferences" in html
     assert 'href="/preferences?type=teaching"' in html
-    assert "<dd>9 / 10</dd>" in html and "<dd>3 / 10</dd>" in html
+    assert 'value="9"' in html and 'value="3"' in html
+    assert html.count("<meter ") == 8
+    assert "tutor_dashboard.css" in html
 
 
-@pytest.mark.parametrize("roles,shown", [(["student"], False), (["tutor"], True)])
-def test_account_links_teaching_preferences_for_tutors_only(frontend, roles, shown):
+@pytest.mark.parametrize("roles", [["student"], ["tutor"], ["student", "tutor"]])
+def test_account_does_not_link_teaching_preferences(frontend, roles):
     client, serve = frontend
     serve({"roles": roles, "email": "a@example.test"})
     html = client.get("/account").get_data(as_text=True)
-    assert ('href="/preferences?type=teaching"' in html) is shown
+    assert 'href="/preferences?type=teaching"' not in html
+    assert 'Learning preferences' in html

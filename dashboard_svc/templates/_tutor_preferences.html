@@ -1,0 +1,29 @@
+<section class="tutor-preference-card" aria-labelledby="{{ kind }}-preferences-title">
+  <div class="tutor-preference-heading">
+    <span class="tutor-preference-label">{{ 'Your teaching style' if kind == 'teaching' else 'How you learn' }}</span>
+    <h2 id="{{ kind }}-preferences-title">Your {{ kind }} preferences</h2>
+    <p>{{ 'Help students find a tutor who suits the way they learn.' if kind == 'teaching' else 'Keep your learning preferences up to date for your own tutor matches.' }}</p>
+  </div>
+  <div class="tutor-preference-body">
+    {% if scores and completed is not sameas false %}
+    <dl class="tutor-ratings">
+      {% for key, label in [('visual', 'Visual'), ('auditory', 'Auditory'), ('reading_writing', 'Reading and writing'), ('kinesthetic', 'Hands-on')] %}
+      {% set score = scores.get(key, 0) %}
+      <div class="tutor-rating">
+        <dt>{{ label }}</dt>
+        <dd><span>{{ score }}</span> <span class="tutor-rating-max">/ 10</span></dd>
+        <meter min="0" max="10" value="{{ score }}" aria-label="{{ label }} {{ kind }} preference">{{ score }} out of 10</meter>
+      </div>
+      {% endfor %}
+    </dl>
+    {% else %}
+    <div class="tutor-preference-empty">
+      <h3>No {{ kind }} preferences set yet</h3>
+      <p>Rate each approach from 0 to 10 to personalise your matches.</p>
+    </div>
+    {% endif %}
+    <div class="tutor-preference-footer">
+      <a class="btn {{ 'btn-primary' if kind == 'teaching' else 'btn-outline-secondary' }}" href="/preferences?type={{ kind }}">{{ 'Set up' if completed is sameas false or not scores else 'Edit' }} your {{ kind }} preferences</a>
+    </div>
+  </div>
+</section>

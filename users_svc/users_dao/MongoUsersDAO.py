@@ -9,6 +9,12 @@ from ..Objects.User import User
 
 
 class MongoUsersDAO(UsersDAO):
+    def grant_tutor_role(self, user):
+        """Add tutor access atomically while preserving the account's other roles."""
+        self.collection.update_one(
+            {'id': str(user.id), 'college': str(user.college)},
+            {'$addToSet': {'roles': 'tutor'}})
+
     def __init__(self, uri=None, db_name=None, collection_name=None):
         """Configure the MongoDB client and collection from arguments or environment
         settings.

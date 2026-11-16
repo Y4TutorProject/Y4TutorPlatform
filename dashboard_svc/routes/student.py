@@ -101,9 +101,10 @@ def get_tutors():
     tutor_preferences = [
         {tutor["id"]: tutor.get("teaching_preferences", {})}
         for tutor in tutors
+        if tutor.get("teaching_preferences_completed") is not False
     ]
     try:
-        scores = get_similarity_scores(student_preferences, tutor_preferences)
+        scores = get_similarity_scores(student_preferences, tutor_preferences) if tutor_preferences else {}
     except HTTPError as error:
         error.close()
         current_app.logger.warning(
@@ -119,6 +120,7 @@ def get_tutors():
         scores = {}
 
     for tutor in tutors:
-        tutor["similarity"] = scores.get(tutor["id"])
+        tutor["similarity"] = (scores.get(tutor["id"])
+                               if tutor.get("teaching_preferences_completed") is not False else None)
     tutors.sort(key=lambda t: t["similarity"] if t["similarity"] is not None else -1, reverse=True)
     return {"tutors": tutors}

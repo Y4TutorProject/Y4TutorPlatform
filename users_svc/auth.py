@@ -8,6 +8,7 @@ from .Objects.LearningTeachingStyles import LearningTeachingStyles
 import uuid
 from pymongo.errors import DuplicateKeyError
 from .credentials import normalize_username
+from .module_roles import synchronize_tutor_role
 import logging
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def login():
     if user is None:
         return jsonify(error="Invalid email or password."), 401
     session.clear()
+    synchronize_tutor_role(current_app, user)
     login_user(user, remember=False)
     session.permanent = True
     return jsonify(user=user.to_public_dict(), csrf_token=generate_csrf(), active_role=current_role().value if current_role() else None)

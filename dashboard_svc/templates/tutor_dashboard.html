@@ -1,13 +1,17 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Tutor Dashboard{% endblock %}
+{% block body_class %}tutor-dashboard-page dashboard-page{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='tutor_dashboard.css') }}">
+{% endblock %}
 {% block dashboard_content %}
 <header class="dashboard-heading">
-<h1>Tutor Dashboard</h1>
+  <h1>Tutor Dashboard</h1>
+  <p>Manage your teaching style and learning preferences.</p>
 </header>
-<div class="card"><div class="card-body p-4">
-  {% with kind='learning', scores=user.preferences %}{% include "_preferences_summary.html" %}{% endwith %}
-</div></div>
-<div class="card mt-3"><div class="card-body p-4">
-  {% with kind='teaching', scores=user.teaching_preferences %}{% include "_preferences_summary.html" %}{% endwith %}
-</div></div>
+<div class="tutor-preference-grid">
+  {% with kind='teaching', scores=user.teaching_preferences, completed=user.teaching_preferences_completed %}{% include "_tutor_preferences.html" %}{% endwith %}
+  {% with kind='learning', scores=user.preferences, completed=user.preferences_completed %}{% include "_tutor_preferences.html" %}{% endwith %}
+</div>
 {% endblock %}
