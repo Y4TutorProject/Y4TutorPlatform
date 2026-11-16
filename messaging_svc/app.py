@@ -5,7 +5,7 @@ import hmac
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO, join_room
 from jinja2 import ChoiceLoader, FileSystemLoader
 
@@ -217,6 +217,11 @@ def create_app(config=None):
 
     @socketio.on("message")
     def handle_message(payload):
+        """Handle incoming chat messages.
+
+        Validates the payload, checks chat membership, stores the message,
+        updates the chat, and emits the message to all chat members.
+        """
         if not isinstance(payload, dict):
             return
         if not all(
