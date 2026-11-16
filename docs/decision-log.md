@@ -157,3 +157,15 @@ These entries record implemented decisions. Reasons and alternatives were writte
 **Other options:** Store username snapshots in messaging, or add a batch lookup endpoint.
 
 **Trade-off:** Each distinct participant requires a lookup per page request, adding latency and a dependency on the users service. Inaccessible profiles show "Unavailable user"; other lookup failures prevent the page from loading.
+
+## 014 - Encrypt messages in the database
+
+**Date:** 2026-11-16
+
+**Decision:** Encrypt message content before storing it in the database and decrypt it when retrieving.
+
+**Why:** Protects sensitive message content from unauthorized access at the database level.
+
+**Other options:** Store messages in plaintext and rely on database access controls, or use field-level encryption provided by the database.
+
+**Trade-off:** Adds encryption and decryption overhead, and requires secure key management.
