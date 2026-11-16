@@ -121,8 +121,28 @@ def test_get_tutors_returns_profiles(frontend, monkeypatch, tutor_ids):
         "http://users.test/users/me",
         "http://lms.test/students/me/modules/module-1/tutors",
         *[f"http://users.test/users/{tutor_id}" for tutor_id in tutor_ids],
-        "http://matching.test/get-recommendations",
+        *(["http://matching.test/get-recommendations"] if tutor_ids else []),
     ]
+
+
+def test_unset_teaching_preferences_do_not_produce_zero_match(frontend, monkeypatch):
+    app, client = frontend
+
+    def upstream(request, timeout):
+        if request.full_url.endswith('/users/me'):
+            return json_response({'user': {'email_verified': True, 'preferences': {'visual': 7}}})
+        if request.full_url.startswith('http://lms.test/'):
+            return json_response({'tutor_ids': ['tutor-1']})
+        assert request.full_url == 'http://users.test/users/tutor-1'
+        return json_response({'user': {
+            'id': 'tutor-1', 'preferences': {'visual': 7},
+            'teaching_preferences': {'visual': 0}, 'teaching_preferences_completed': False,
+        }})
+
+    monkeypatch.setattr(app.extensions['users_opener'], 'open', upstream)
+    response = client.get('/get_tutors?module_id=module-1')
+    assert response.status_code == 200
+    assert response.json['tutors'][0]['similarity'] is None
 
 
 @pytest.mark.parametrize("payload", [{}, {"tutor_ids": "tutor-1"}, {"tutor_ids": [1]}])
@@ -170,7 +190,7 @@ def test_get_tutors_rejects_malformed_profile(frontend, monkeypatch):
     assert client.get("/get_tutors?module_id=module-1").status_code == 502
 
 
-def test_get_tutors_returns_502_when_matching_service_is_unavailable(frontend, monkeypatch, caplog):
+def test_get_tutors_remains_available_without_matching_scores(frontend, monkeypatch, caplog):
     app, client = frontend
 
     def upstream(request, timeout):
@@ -185,8 +205,8 @@ def test_get_tutors_returns_502_when_matching_service_is_unavailable(frontend, m
     monkeypatch.setattr(app.extensions["users_opener"], "open", upstream)
     response = client.get("/get_tutors?module_id=module-1")
 
-    assert response.status_code == 502
-    assert "temporarily unavailable" in response.text
+    assert response.status_code == 200
+    assert response.json['tutors'][0]['similarity'] is None
     assert "Tutor matching failed (URLError)" in caplog.text
     assert "Private Name" not in caplog.text
 

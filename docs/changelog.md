@@ -7,6 +7,13 @@
 - Added Markdown, formatting, local-link and strict MkDocs checks.
 - Added the documentation Actions workflow and Pages deployment configuration.
 
+## 2026-11-16
+
+- Documented automatic account tutor roles from module membership, including existing approvals and service-token configuration.
+- Updated profile and tutor dashboard guides for learning-only profiles and themed teaching and learning cards.
+- Documented mobile bottom navigation, role switching, account sign-out and conversation navigation.
+- Added tutor role and preference regression tests to the testing guide.
+
 ## 2026-11-13
 
 - Updated dashboard and matching service documentation and diagrams.

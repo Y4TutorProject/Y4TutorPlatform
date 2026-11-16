@@ -594,7 +594,8 @@ paths:
   /account:
     get:
       tags: [Dashboard]
-      summary: Account settings page
+      summary: Profile and learning preferences page
+      description: Shows learning preferences in both student and tutor views. Teaching preferences are edited from the tutor dashboard.
       operationId: getAccountPage
       security:
       - UsersSession: []
@@ -608,8 +609,16 @@ paths:
   /preferences:
     get:
       tags: [Dashboard]
-      summary: Learning preferences page
+      summary: Learning or teaching preferences page
       operationId: getPreferencesPage
+      parameters:
+      - name: type
+        in: query
+        description: Selects which preference scores to edit. Tutors complete teaching preferences before entering their dashboard.
+        schema:
+          type: string
+          enum: [learning, teaching]
+          default: learning
       security:
       - UsersSession: []
       responses:
@@ -1129,6 +1138,7 @@ components:
           format: uuid
         roles:
           type: array
+          description: Account roles. Tutor membership in any module in the account college adds tutor at login or on a later authenticated request, preserving student access.
           items:
             type: string
             enum: [student, tutor, college_admin]

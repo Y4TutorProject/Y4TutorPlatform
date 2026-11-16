@@ -8,7 +8,7 @@ Python tests cover service logic using mocked MongoDB, HTTP responses and email 
 .venv-docs/bin/python scripts/check_docs.py
 ```
 
-This runs formatting, Markdown, YAML, Mermaid syntax, strict MkDocs and generated local-link checks. Install Node.js 20 or later and run `npm ci` first; see the [documentation workflow](docs-workflow.md).
+This runs formatting, Markdown, YAML, Mermaid syntax, strict MkDocs and generated local-link checks. Install Node.js 22.12 or later and run `npm ci` first; see the [documentation workflow](docs-workflow.md).
 
 ## Python service tests
 
@@ -17,10 +17,14 @@ Set up a Python 3.12 environment:
 ```sh
 python3.12 -m venv .venv-auth
 .venv-auth/bin/python -m pip install -r users_svc/requirements-dev.txt -r dashboard_svc/requirements.txt
+export SESSION_SECRET=local-test-session-secret
 PYTHONPATH=dashboard_svc .venv-auth/bin/python -m pytest tests -q
 ```
 
-`PYTHONPATH=dashboard_svc` allows the dashboard's local imports to resolve.
+`PYTHONPATH=dashboard_svc` allows the dashboard's local imports to resolve. Set
+`SESSION_SECRET` in the test environment for dashboard tests, for example
+`export SESSION_SECRET=local-test-session-secret`. Use Python 3.12 with scrypt
+support; older system Python builds may fail during password hashing.
 
 `tests/test_account_settings.py` imports the old `dashboard.app` path. To run the remaining tests while that collection error is being fixed:
 
@@ -43,8 +47,15 @@ python3.12 -m venv .venv-matching
 | Signup, sessions and colleges | `test_auth.py`, `test_college_auth.py` |
 | LMS validation and imports | `test_lms_security.py`, `test_lms_import.py`, `test_lms_sync.py`, `test_lms_mapping.py` |
 | Academic records and CSV | `test_academic_catalog.py`, `test_manual_academics.py`, `test_csv_import.py` |
-| Student data and preferences | `test_student_moodle.py`, `test_account_page.py`, `test_learning_preferences.py` |
+| Student data and preferences | `test_student_moodle.py`, `test_account_page.py`, `test_learning_preferences.py`, `test_dashboard_preferences.py` |
+| Module tutor account roles | `test_module_account_roles.py` |
 | Tutor lookup and PWA | `test_dashboard_tutors.py`, `test_pwa.py` |
+
+Tutor account-role tests cover existing approvals, login and authenticated-request
+promotion, preservation of student access, college boundaries, service-token
+validation and unavailable lookups. Account and dashboard preference tests check
+that profiles show learning preferences and the tutor dashboard keeps teaching
+and learning cards with edit links.
 
 ## JavaScript checks
 

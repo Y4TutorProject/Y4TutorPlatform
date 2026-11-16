@@ -50,11 +50,24 @@ const assert = require('node:assert/strict');
           await page.goto(base + path);
           assert(!page.url().endsWith('/login'), `${path}: authenticated navigation`);
           await noOverflow(`${path} at ${width}px`);
-          if (width < 768 && await page.locator('.platform-menu-toggle').count()) {
-            await page.locator('.platform-menu-toggle').click();
-            assert(await page.locator('.platform-nav-actions').isVisible());
-            await page.keyboard.press('Escape');
-            assert.equal(await page.locator('.platform-nav-actions').isVisible(), false);
+          const nav = page.locator('.platform-nav');
+          assert(await nav.isVisible());
+          assert.equal(await page.locator('.platform-menu-toggle').count(), 0);
+          if (width < 768) {
+            const box = await nav.boundingBox();
+            assert(Math.abs(box.y + box.height - 900) < 2, 'Navigation fixed to viewport bottom');
+            for (const link of await page.locator('.platform-nav-actions a, .platform-nav-actions button').all()) {
+              if (!await link.isVisible()) continue;
+              const target = await link.boundingBox();
+              assert(target && target.height >= 44 && target.width >= 44, 'Tappable navigation target');
+            }
+            const composer = page.locator('#message-box');
+            if (await composer.isVisible()) {
+              const input = await composer.boundingBox();
+              assert(input.y + input.height <= box.y + 1, 'Composer clears bottom navigation');
+            }
+          } else {
+            assert.equal(await nav.evaluate(el => getComputedStyle(el).position), 'static');
           }
         }
       }

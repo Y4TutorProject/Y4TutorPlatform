@@ -17,6 +17,7 @@ flowchart LR
     gateway -->|Socket.IO and chat API| messaging[Messaging service]
     dashboard -->|Session checks through gateway| gateway
     dashboard -->|Signed chat requests| messaging
+    users -->|Internal module tutor role lookup| lms
     users --> usersdb[(Users database)]
     registration --> usersdb
     registration --> mail[Mailpit: local email]
@@ -40,7 +41,7 @@ The diagram omits individual route prefixes for readability. See the API overvie
 | Users frontend | Sign-in page | Users API |
 | Registration frontend | Signup, email verification and college registration pages | Registration and college APIs |
 | Dashboard | Signed-in pages, account forms, tutor lookup and messaging hand-off | Users, college, LMS and messaging APIs |
-| Users API | Login, sessions, usernames and preference scores | Users database |
+| Users API | Login, sessions, usernames, preference scores and tutor account-role reconciliation | Users database and LMS API |
 | Registration API | Signup and email verification | Users database and Mailpit |
 | College API | College ownership, courses, modules and manual assignments | College database |
 | LMS API and worker | Connections, imports, scheduled syncs and module participation | LMS database, college API and Moodle |

@@ -1,5 +1,6 @@
 """Standalone LMS HTTP API. Other services never import this package."""
 import os
+import hmac
 import uuid
 
 from flask import Flask, app, jsonify, request
@@ -54,6 +55,16 @@ def create_app(config=None, database=None, auth_client=None, college_client=None
     app.extensions.update(lms_service=importer, lms_sync=sync, lms_database=database)
 
     app.extensions["module_participation"] = participation
+
+    @app.get('/internal/college/<uuid:college_id>/users/<uuid:user_id>/module-roles')
+    def account_module_roles(college_id, user_id):
+        token = app.config['COLLEGE_SYNC_TOKEN']
+        supplied = request.headers.get('X-College-Sync-Token', '')
+        if not token or not hmac.compare_digest(token.encode(), supplied.encode()):
+            return jsonify(error='Service authentication required.'), 401
+        membership = database['module_memberships'].find_one({
+            'college_id': str(college_id), 'user_id': str(user_id), 'roles': 'tutor'}, {'_id': 1})
+        return jsonify(tutor=membership is not None)
 
     def student_context(write=False):
         if write:

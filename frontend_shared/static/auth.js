@@ -136,19 +136,20 @@ async function loadAccount() {
 }
 
 function setupSignOut() {
-  const button = document.getElementById("logout-button");
-  if (!button) return;
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      await submitToAPI("/api/users", "/auth/logout", {});
-      window.location.replace("/login");
-    } catch (error) {
-      if (error.status === 401) window.location.replace("/login");
-      else showStatus(errorMessage(error), true);
-      button.disabled = false;
-    }
-  });
+  const buttons = [document.getElementById("logout-button"), document.getElementById("account-logout-button")].filter(Boolean);
+  for (const button of buttons) {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await submitToAPI("/api/users", "/auth/logout", {});
+        window.location.replace("/login");
+      } catch (error) {
+        if (error.status === 401) window.location.replace("/login");
+        else showStatus(errorMessage(error), true);
+        button.disabled = false;
+      }
+    });
+  }
 }
 
 async function setupLMSImport(collegeId) {

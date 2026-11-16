@@ -20,12 +20,14 @@ function sizeConversation() {
   const viewport = window.visualViewport;
   const bottom = (viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0);
   const top = chatLayout.getBoundingClientRect().top;
-  chatLayout.style.setProperty('--chat-height', `${Math.max(140, bottom - top - 12)}px`);
+  const nav = document.querySelector('.platform-nav');
+  const navHeight = nav && getComputedStyle(nav).position === 'fixed' ? nav.getBoundingClientRect().height : 0;
+  chatLayout.style.setProperty('--chat-height', `${Math.max(140, bottom - top - navHeight - 12)}px`);
 }
 window.visualViewport?.addEventListener('resize', sizeConversation);
 window.visualViewport?.addEventListener('scroll', sizeConversation);
 window.addEventListener('resize', sizeConversation);
-// Banners and the expanded menu change the available space without resizing
+// Banners and the bottom navigation change the available space without resizing
 // the viewport. Keep the composer in view when these elements change height.
 if ('ResizeObserver' in window) {
   const layoutObserver = new ResizeObserver(sizeConversation);

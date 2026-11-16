@@ -219,6 +219,10 @@ def test_only_module_lecturer_can_review_and_approval_grants_module_role(program
         ['applicant'] if decision == 'approved' else [])
     assert db.tutor_applications.find_one()['reviewed_by'] == account['id']
     assert client.get(base).json['applications'] == []
+    # Module approval must not depend on an in-process users service or promote
+    # the lecturer/applicant's global account roles.
+    assert 'users_service' not in client.application.extensions
+    assert users.extensions['users_dao'].collection.find_one({'id': account['id']})['roles'] == ['student']
 
 
 @pytest.mark.parametrize('case', ['wrong_module', 'removed', 'suspended', 'ambiguous', 'self'])

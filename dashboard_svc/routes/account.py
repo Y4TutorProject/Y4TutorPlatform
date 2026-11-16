@@ -40,4 +40,5 @@ def preferences():
         kind=kind,
         scores=user.get(field) or {},
         onboarding=onboarding,
+        can_manage_college=can_manage_college(user),
     )

@@ -47,19 +47,33 @@ test("renders tutor cards and preference pills", async () => {
         assert.equal(url, "/api/dashboard/get_tutors?module_id=module-1");
         return { ok: true, json: async () => ({ tutors: [{
             username: "<Tutor>",
-            preferences: { visual: 8, reading_writing: 5 }
+            teaching_preferences: { visual: 8, reading_writing: 5 },
+            teaching_preferences_completed: true
         }] }) };
     });
     await ui.buttons[0].click();
     assert.equal(ui.buttons[0].attributes["aria-pressed"], "true");
     assert.equal(ui.selected.textContent, "Module 1");
     const card = ui.results.children[0].children[0];
-    assert.equal(card.children[0].children[1].children[1].textContent, "<Tutor>");
+    assert.equal(card.children[0].children[1].children[0].textContent, "<Tutor>");
+    assert.equal(card.children[1].children[0].textContent, "TEACHING PREFERENCES");
     assert.deepEqual(card.children[1].children[1].children.map(chip => chip.textContent), [
         "Visual \u00b7 8/10", "Reading & writing \u00b7 5/10"
     ]);
-    assert.equal(card.children[2].disabled, true);
+    assert.equal(card.children[2].disabled, false);
     assert.equal(ui.results.attributes["aria-busy"], "false");
+});
+
+test("unset teaching preferences show an empty state instead of zero ratings", async () => {
+    const ui = dashboard(async () => ({ ok: true, json: async () => ({ tutors: [{
+        username: "Tutor", similarity: null, teaching_preferences_completed: false,
+        preferences: { visual: 7 }, teaching_preferences: { visual: 0 }
+    }] }) }));
+    await ui.buttons[0].click();
+    const card = ui.results.children[0].children[0];
+    assert.equal(card.children[0].children.length, 2);
+    assert.equal(card.children[1].children[1].textContent,
+        "Teaching preferences not set yet. Match unavailable.");
 });
 
 test("renders empty and failure states", async () => {

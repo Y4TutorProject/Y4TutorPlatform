@@ -15,7 +15,7 @@ Enable Moodle web services and REST, then create an integration user and token w
 - `core_enrol_get_enrolled_users` for course roles
 - `core_course_get_contents` when using activities as modules
 
-Generate a separate `COLLEGE_SYNC_TOKEN` in `.env`. The college API, LMS API and worker use it for internal catalogue requests. Generate `LMS_ENCRYPTION_KEY` with:
+Generate a separate `COLLEGE_SYNC_TOKEN` in `.env`. The college API, LMS API and worker use it for internal catalogue requests. The users API also receives this token to look up module tutor membership. Generate `LMS_ENCRYPTION_KEY` with:
 
 ```sh
 python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
@@ -104,7 +104,7 @@ A missing, suspended or ambiguous profile returns no academic records. Empty enr
 
 ## Module roles and tutor applications
 
-Module roles are stored in `module_memberships`, with one record per `(college_id, user_id, module_id)` and a `roles` array. Dashboard visits, module searches and syncs refresh student memberships from enrolments. Withdrawn or suspended enrolments lose student membership; approved tutor membership is kept. These roles leave global account roles and Moodle records unchanged.
+Module roles are stored in `module_memberships`, with one record per `(college_id, user_id, module_id)` and a `roles` array. Dashboard visits, module searches and syncs refresh student memberships from enrolments. Withdrawn or suspended enrolments lose student membership; approved tutor membership is kept. Moodle records remain unchanged. If a user has tutor membership in any module in their college, the users service adds the account-level tutor role on the next login or authenticated request, retaining the student role. See [account role reconciliation](users.md#tutor-account-roles).
 
 `GET /api/lms/students/me/modules?q=...` searches eligible earlier-year modules in the student's programme. The highest enrolled year determines their current year unless the mapper supplies it explicitly. Unknown years grant no eligibility. Year 1 students cannot apply.
 

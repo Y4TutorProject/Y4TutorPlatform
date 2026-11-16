@@ -51,6 +51,8 @@ def test_all_role_templates_include_mobile_navigation():
                                    'college_id': 'college', 'preferences': {}, 'roles': [role]},
                                    modules=[], is_lecturer=role == 'lecturer', can_manage_college=role == 'college_admin')
         assert 'href="/pwa/mobile.css"' in html
-        assert 'aria-controls="platform-nav-actions"' in html
-        assert 'aria-expanded="false"' in html
+        assert 'id="platform-nav-actions"' in html
+        assert 'class="platform-nav-icon"' in html
+        assert 'platform-menu-toggle' not in html
+        assert html.count('id="logout-button"') == 1
         assert 'href="/manifest.webmanifest"' in html

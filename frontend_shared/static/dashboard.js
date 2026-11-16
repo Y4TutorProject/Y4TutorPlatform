@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (typeof tutor.similarity === "number") header.append(matchBadge(tutor.similarity));
 
         const preferences = element("div", "tutor-preferences");
-        preferences.append(element("p", "preferences-label", "LEARNING PREFERENCES"));
+        preferences.append(element("p", "preferences-label", "TEACHING PREFERENCES"));
         const chips = element("ul", "preference-list");
         const labels = {
             auditory: "Auditory",
@@ -49,14 +49,14 @@ document.addEventListener("DOMContentLoaded", function () {
             reading_writing: "Reading & writing",
             kinesthetic: "Kinesthetic"
         };
-        Object.entries(tutor.teaching_preferences || {}).forEach(([key, score]) => {
+        Object.entries(tutor.teaching_preferences_completed === false ? {} : tutor.teaching_preferences || {}).forEach(([key, score]) => {
             const label = labels[key] || key.replace(/_/g, " ");
             chips.append(element("li", "preference-chip", `${label} \u00b7 ${score}/10`));
         });
         if (chips.childElementCount) {
             preferences.append(chips);
         } else {
-            preferences.append(element("p", "preferences-empty", "No preferences available."));
+            preferences.append(element("p", "preferences-empty", "Teaching preferences not set yet. Match unavailable."));
         }
 
         

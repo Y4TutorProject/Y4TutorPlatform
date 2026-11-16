@@ -73,6 +73,8 @@ services:
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       - MONGO_DB_NAME=users_db
       - MONGO_COLLECTION_NAME=users
+      - LMS_API_URL=http://lms_svc:5000
+      - COLLEGE_SYNC_TOKEN=${COLLEGE_SYNC_TOKEN:-}
     depends_on:
       users_db:
         condition: service_healthy

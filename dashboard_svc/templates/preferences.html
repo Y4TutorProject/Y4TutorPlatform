@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "dashboard_base.html" %}
 {% set copy = {
   'learning': {
     'intro': 'Welcome! Tell us how you like to learn before you continue.',
@@ -21,30 +21,50 @@
 }[kind] %}
 {% block title %}{{ kind | capitalize }} preferences{% endblock %}
 {% block page %}preferences{% endblock %}
-{% block content %}
-  <h1 id="form-title" class="h4">{{ 'Set up your ' ~ kind ~ ' preferences' if onboarding else 'Edit your ' ~ kind ~ ' preferences' }}</h1>
+{% block body_class %}profile-page preferences-page{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='profile.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='preferences.css') }}">
+{% endblock %}
+{% block main %}
+<main class="container py-5">
+<div class="profile-shell preferences-shell">
+  <header class="profile-heading">
+  <p class="profile-eyebrow">YOUR {{ kind | upper }} STYLE</p>
+  <h1 id="form-title" >{{ 'Set up your ' ~ kind ~ ' preferences' if onboarding else 'Edit your ' ~ kind ~ ' preferences' }}</h1>
+  {% if onboarding %}<p class="preferences-intro">{{ copy.intro }}</p>{% endif %}
   <p id="preferences-help">Rate each approach from 0 (no preference) to 10 (strong preference). You can give approaches the same score and change these later in your account.</p>
+  </header>
   <p id="form-status" class="alert alert-info" role="status" aria-live="polite" tabindex="-1" hidden></p>
   <form id="preferences-form" aria-describedby="preferences-help" data-kind="{{ kind }}" data-onboarding="{{ 'true' if onboarding else 'false' }}">
     <fieldset>
-      <legend class="h5">Your ratings</legend>
+      <legend class="visually-hidden">Your ratings</legend>
+      <div class="preferences-grid">
       {% for key, label in [
         ('visual', 'Visual'),
         ('auditory', 'Auditory'),
         ('reading_writing', 'Reading and writing'),
         ('kinesthetic', 'Kinesthetic')
       ] %}
-      <div class="mb-3">
+      <div class="preference-rating">
+        <div class="preference-rating-heading">
         <label for="preference-{{ key }}" class="form-label">{{ label }}</label>
-        <span class="float-end" aria-hidden="true"><span id="value-{{ key }}">{{ scores.get(key, 0) }}</span> / 10</span>
+        <span class="preference-score" aria-hidden="true"><span id="value-{{ key }}">{{ scores.get(key, 0) }}</span><span class="profile-score-max"> / 10</span></span>
+        </div>
         <input id="preference-{{ key }}" name="{{ key }}" type="range" min="0" max="10" step="1" class="form-range"
                value="{{ scores.get(key, 0) }}" aria-describedby="help-{{ key }}">
-        <p id="help-{{ key }}" class="form-text">{{ copy.descriptions[key] }}</p>
+        <p id="help-{{ key }}" class="preference-description">{{ copy.descriptions[key] }}</p>
       </div>
       {% endfor %}
+      </div>
     </fieldset>
-    <button class="btn btn-primary" type="submit">{{ 'Save and continue' if onboarding else 'Save preferences' }}</button>
+    <div class="profile-card-footer">
+    <button class="profile-button" type="submit">{{ 'Save and continue' if onboarding else 'Save preferences' }}</button>
+    {% if not onboarding %}<a class="profile-button profile-button-secondary" href="/account">Back to your account</a>{% endif %}
+    </div>
   </form>
-  {% if not onboarding %}<p class="mt-3"><a href="/account">Back to your account</a></p>{% endif %}
   <noscript><p class="alert alert-info mt-3">Enable JavaScript to save your preferences.</p></noscript>
+</div>
+</main>
 {% endblock %}
