@@ -46,7 +46,7 @@ be decrypted without the same key.
 Message bodies are encrypted with AES-256-GCM before being saved in the MongoDB
 messages collection, using a fresh random nonce for each message. They are
 decrypted when loaded by the messaging service. The `lastMessage` preview in
-MongoDB chat documents is currently stored as plaintext.
+MongoDB chat documents is encrypted on writes and decrypted on reads as well.
 
 ## Dashboard integration
 

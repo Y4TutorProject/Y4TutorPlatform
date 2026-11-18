@@ -58,7 +58,9 @@ class MongoMessagesDAO:
 
     @staticmethod
     def _chat_to_document(chat):
-        return chat.to_dict()
+        document = chat.to_dict()
+        document["lastMessage"] = encrypt(document["lastMessage"])
+        return document
 
     @staticmethod
     def _message_to_document(message):
@@ -79,7 +81,12 @@ class MongoMessagesDAO:
 
     @staticmethod
     def _chat_from_document(data):
-        return Chat(data) if data is not None else None
+        if data is None:
+            return None
+
+        document = dict(data)
+        document["lastMessage"] = decrypt(document["lastMessage"])
+        return Chat(document)
 
     @staticmethod
     def _message_from_document(data):

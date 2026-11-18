@@ -51,7 +51,7 @@
       </div>
       <div id="message-box" class="{% if not openChat %}d-none{% endif %}">
         <div class="messages-composer">
-          <input type="file" id="file-upload" multiple hidden>
+          <input type="file" id="file-upload" onchange="upload(this.files)" multiple hidden>
           <label for="file-upload" class="messages-upload">Upload</label>
           <input type="text" id="message-input" name="message" placeholder="Type a message..." class="form-control" aria-label="Message">
           <button type="button" id="send-btn" class="messages-send">Send</button>

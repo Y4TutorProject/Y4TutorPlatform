@@ -10,5 +10,8 @@ def encrypt(text: str) -> str:
     return base64.b64encode(nonce + ct).decode()
 
 def decrypt(blob: str) -> str:
-    raw = base64.b64decode(blob)
-    return aes.decrypt(raw[:12], raw[12:], None).decode()
+    try:
+        raw = base64.b64decode(blob)
+        return aes.decrypt(raw[:12], raw[12:], None).decode()
+    except Exception:
+        return ""

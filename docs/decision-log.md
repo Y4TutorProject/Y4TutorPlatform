@@ -168,4 +168,4 @@ These entries record implemented decisions. Reasons and alternatives were writte
 
 **Other options:** Store messages in plaintext and rely on database access controls, or use field-level encryption provided by the database.
 
-**Trade-off:** Adds encryption and decryption overhead, and requires secure key management.
+**Trade-off:** Adds encryption and decryption overhead and requires secure key management.
