@@ -19,7 +19,7 @@ Open <http://127.0.0.1:8000>. Run the checks before committing:
 .venv-docs/bin/python scripts/check_docs.py
 ```
 
-This checks source formatting, Markdown, YAML, Mermaid syntax and local links, runs the checker tests, and builds MkDocs in strict mode. Output goes to the ignored `site/` directory. To use another directory:
+This checks source formatting, Markdown, YAML, OpenAPI, Mermaid syntax, local links and nav coverage, runs the checker tests, and builds MkDocs in strict mode. Nav coverage fails when a Markdown page under `docs/` isn't listed in `mkdocs.yml`, or when a nav entry points to a missing file. OpenAPI linting uses Spectral with the rules in `.spectral.yaml`; errors fail the check and warnings are reported. Output goes to the `site/` directory. To use another directory:
 
 ```sh
 .venv-docs/bin/python scripts/check_docs.py --site-dir /tmp/tutorplatform-docs

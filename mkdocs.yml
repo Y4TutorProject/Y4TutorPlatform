@@ -16,6 +16,11 @@ nav:
   - Getting started:
       - Local development: setup/local-development.md
       - Desktop and mobile PWA: setup/pwa.md
+  - User guides:
+      - Admin setup: user-guides/admin-setup.md
+      - Student sign-up and courses: user-guides/student-sign-up.md
+      - Tutor applications: user-guides/tutor-applications.md
+      - Lecturer reviews: user-guides/lecturer-reviews.md
   - Architecture:
       - System overview: architecture/overview.md
       - Dashboard: architecture/dashboard.md

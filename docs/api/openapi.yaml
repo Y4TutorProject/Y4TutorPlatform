@@ -1122,6 +1122,37 @@ components:
       schema:
         type: string
   schemas:
+    MatchingRequest:
+      type: object
+      required:
+      - student_vector
+      - tutors
+      properties:
+        student_vector:
+          type: array
+          description: Student preference scores, from 0 to 10.
+          items:
+            type: number
+        tutors:
+          type: object
+          description: Map of tutor IDs to preference vectors. Each vector must have the same length as student_vector.
+          additionalProperties:
+            type: array
+            items:
+              type: number
+    MatchingResponse:
+      type: array
+      description: Tutor IDs with similarity scores, sorted from best to worst match.
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        items: {}
+        prefixItems:
+        - type: string
+          description: Tutor ID.
+        - type: number
+          description: Similarity score.
     UserProfile:
       type: object
       description: General details safe to show to other users in the same college.
