@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from check_docs import check_site
+from check_docs import check_site, nav_files
 
 
 class SiteLinks(unittest.TestCase):
@@ -44,6 +44,12 @@ class SiteLinks(unittest.TestCase):
     def test_link_cannot_escape_output_directory(self):
         errors = check_site(self.site('<a href="../outside.html">Outside</a>'))
         self.assertTrue(any('escapes the site' in error for error in errors))
+
+
+class NavCoverage(unittest.TestCase):
+    def test_nested_nav_entries_are_flattened(self):
+        nav = [{'Home': 'index.md'}, {'Guides': [{'Admin': 'guides/admin.md'}, 'api/openapi.yaml']}]
+        self.assertEqual(nav_files(nav), {'index.md', 'guides/admin.md', 'api/openapi.yaml'})
 
 
 if __name__ == '__main__':

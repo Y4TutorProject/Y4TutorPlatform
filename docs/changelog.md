@@ -7,6 +7,12 @@
 - Added Markdown, formatting, local-link and strict MkDocs checks.
 - Added the documentation Actions workflow and Pages deployment configuration.
 
+## 2026-11-18
+
+- Added Spectral OpenAPI linting to the documentation checks and fixed the missing matching request and response schemas.
+- Added a nav coverage check that fails when a documentation page is missing from the MkDocs navigation or a navigation entry points to a missing file.
+- Added user guides for college admin setup, student sign-up, tutor applications and lecturer reviews.
+
 ## 2026-11-16
 
 - Documented automatic account tutor roles from module membership, including existing approvals and service-token configuration.
