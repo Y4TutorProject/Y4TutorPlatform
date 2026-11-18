@@ -8,6 +8,7 @@ A college peer-tutoring prototype built with Flask services, MongoDB and Docker 
 - [Set up the desktop or mobile PWA](setup/pwa.md)
 - [Explore the architecture](architecture/overview.md)
 - [Explore the APIs](api/README.md)
+- [User guides](user-guides/admin-setup.md)
 
 ## Development
 
