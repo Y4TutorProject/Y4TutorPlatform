@@ -169,3 +169,15 @@ These entries record implemented decisions. Reasons and alternatives were writte
 **Other options:** Store messages in plaintext and rely on database access controls, or use field-level encryption provided by the database.
 
 **Trade-off:** Adds encryption and decryption overhead and requires secure key management.
+
+## 015 - Store chat file attachments in GridFS
+
+**Date:** 2026-11-20
+
+**Decision:** Store uploaded files in MongoDB GridFS, encrypted with AES-256-GCM using the same key as message text, and send them as file messages in the chat. Allow PDF, DOCX and XLSX files up to 10 MB. Serve downloads through the messaging service, only to chat members. Nginx allows 11 MB on the upload route only.
+
+**Why:** Files stay in the existing database (which simplified implementation), they are encrypted, and go through the same chat membership checks as messages. This gives a unified approach to message and file storage. GridFS handles files larger than a single document.
+
+**Other options:** Store files on disk or in cloud storage like S3 or Azure Blob Storage or link to external file hosts.
+
+**Trade-off:** Increased CPU cost from encrypting and decrypting files. Browsers and clients rely on the uploaded MIME type, which is checked only against the allowlist. Files cannot be recovered without the `MESSAGING_KEY` used for encryption.
