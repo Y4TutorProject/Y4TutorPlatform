@@ -2,15 +2,13 @@ import base64
 import io
 import os
 import secrets
-import sys
-from pathlib import Path
 
 import pytest
 from bson import ObjectId
 from cryptography.exceptions import InvalidTag
 
+# encrypt.py reads MESSAGING_KEY at import time, so set it before importing.
 os.environ.setdefault("MESSAGING_KEY", base64.b64encode(secrets.token_bytes(32)).decode())
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from messages_dao.MongoMessagesDAO import MongoMessagesDAO  # noqa: E402
 
