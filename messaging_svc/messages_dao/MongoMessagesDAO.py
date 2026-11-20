@@ -1,11 +1,12 @@
 import os
+from io import BytesIO
 from bson import ObjectId
 from gridfs import GridFSBucket
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from models.Chat import Chat
 from models.Message import Message
 from models.ChatReadState import ChatReadState
-from encrypt import encrypt, decrypt
+from encrypt import encrypt, decrypt, encrypt_bytes, decrypt_bytes
 from gridfs import GridFSBucket
 
 class MongoMessagesDAO:
@@ -172,7 +173,7 @@ class MongoMessagesDAO:
     def save_file(self, file_stream, file_name, mime_type, file_size, chat_id, sender_id):
         file_id = self.file_bucket.upload_from_stream(
             file_name,
-            file_stream,
+            BytesIO(encrypt_bytes(file_stream.read())),
             metadata={
                 "chatId": chat_id,
                 "senderId": sender_id,
@@ -183,7 +184,8 @@ class MongoMessagesDAO:
         return str(file_id)
 
     def open_file(self, file_id):
-        return self.file_bucket.open_download_stream(ObjectId(file_id))
+        grid_out = self.file_bucket.open_download_stream(ObjectId(file_id))
+        return BytesIO(decrypt_bytes(grid_out.read()))
 
     def delete_file(self, file_id):
         self.file_bucket.delete(ObjectId(file_id))
