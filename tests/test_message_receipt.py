@@ -1,6 +1,6 @@
 import io
 
-from models.Message import Message
+from messaging_svc.models.Message import Message
 
 
 def test_history_returns_file_metadata_and_text_type(client, login, chat, dao):

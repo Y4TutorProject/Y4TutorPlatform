@@ -1,6 +1,6 @@
 import io
 
-from models.Message import Message
+from messaging_svc.models.Message import Message
 
 
 def _seed_file_message(dao, chat_id="c1", sender_id="1", data=b"hello"):

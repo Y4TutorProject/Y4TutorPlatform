@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from gridfs.errors import NoFile
 
-MESSAGING_DIR = Path(__file__).resolve().parents[2] / "messaging_svc"
+MESSAGING_DIR = Path(__file__).resolve().parents[1] / "messaging_svc"
 sys.path.insert(0, str(MESSAGING_DIR))
 
-from models.Chat import Chat  # noqa: E402
+from messaging_svc.models.Chat import Chat  # noqa: E402
 
 
 class FakeMessagesDAO:
