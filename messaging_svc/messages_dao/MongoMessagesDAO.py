@@ -1,9 +1,12 @@
 import os
+from bson import ObjectId
+from gridfs import GridFSBucket
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from models.Chat import Chat
 from models.Message import Message
 from models.ChatReadState import ChatReadState
 from encrypt import encrypt, decrypt
+from gridfs import GridFSBucket
 
 class MongoMessagesDAO:
     """MongoDB access for chats, messages, and per-user chat read state."""
@@ -38,6 +41,10 @@ class MongoMessagesDAO:
             read_state_collection_name
             or os.getenv("MONGO_READ_STATE_COLLECTION_NAME", "chatReadStates")
         ]
+        self.file_bucket = GridFSBucket(
+            self.db,
+            bucket_name=os.getenv("MONGO_FILE_BUCKET_NAME", "messageFiles"),
+        )
 
     def connect_to_database(self):
         self.client.admin.command("ping")
@@ -65,7 +72,7 @@ class MongoMessagesDAO:
     @staticmethod
     def _message_to_document(message):
         document = message.to_dict()
-        document["message"] = encrypt(document["message"])
+        document["message"] = encrypt(document["message"] or "")
         return document
 
     @staticmethod
@@ -162,8 +169,31 @@ class MongoMessagesDAO:
         latest = self.messages.find_one(sort=[("id", DESCENDING)])
         return str(int(latest["id"]) + 1) if latest else "1"
 
+    def save_file(self, file_stream, file_name, mime_type, file_size, chat_id, sender_id):
+        file_id = self.file_bucket.upload_from_stream(
+            file_name,
+            file_stream,
+            metadata={
+                "chatId": chat_id,
+                "senderId": sender_id,
+                "mime_type": mime_type,
+                "file_size": file_size,
+            },
+        )
+        return str(file_id)
+
+    def open_file(self, file_id):
+        return self.file_bucket.open_download_stream(ObjectId(file_id))
+
+    def delete_file(self, file_id):
+        self.file_bucket.delete(ObjectId(file_id))
+        return True
+
     def delete_message(self, message_id):
+        document = self.messages.find_one({"id": message_id})
         result = self.messages.delete_one({"id": message_id})
+        if result.deleted_count and document and document.get("file_id"):
+            self.delete_file(document["file_id"])
         return result.deleted_count > 0
 
     def add_or_update_chat_read_state(
@@ -199,3 +229,5 @@ class MongoMessagesDAO:
             self._read_state_from_document(document)
             for document in self.chat_read_states.find(query, {"_id": 0})
         ]
+
+    

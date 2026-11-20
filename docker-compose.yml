@@ -152,6 +152,7 @@ services:
       - MONGO_READ_STATE_COLLECTION_NAME=chatReadStates
       - SOCKETIO_CORS_ALLOWED_ORIGINS=${PUBLIC_BASE_URL:-*}
       - MESSAGING_KEY=${MESSAGING_KEY}
+      - MONGO_FILE_BUCKET_NAME=messaging_files
     depends_on:
       messaging_db:
         condition: service_healthy

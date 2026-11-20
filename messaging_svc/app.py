@@ -2,16 +2,28 @@ from asyncio.log import logger
 from datetime import datetime, timezone
 import hashlib
 import hmac
+import io
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request, send_file, session
 from flask_socketio import SocketIO, join_room
+from gridfs.errors import NoFile
 from jinja2 import ChoiceLoader, FileSystemLoader
+from werkzeug.utils import secure_filename
 
 from dataload import get_last_read_message_id, mark_chat_read, dao
 from models.Chat import Chat
 from models.Message import Message
+
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+ALLOWED_FILE_MIME_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/csv",
+}
 
 
 def create_app(config=None):
@@ -31,6 +43,8 @@ def create_app(config=None):
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY"),
         DASHBOARD_SHARED_SECRET=os.environ.get("DASHBOARD_SHARED_SECRET"),
+        MONGO_FILE_BUCKET_NAME=os.environ.get("MONGO_FILE_BUCKET_NAME"),        
+        MAX_CONTENT_LENGTH=MAX_UPLOAD_BYTES + 64 * 1024,
         SESSION_COOKIE_NAME="messaging_session",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -121,20 +135,32 @@ def create_app(config=None):
             })
         return user_chats
 
-    def load_chat_messages(chat_id: str):
-        chat_id = _id(chat_id)
+    def _message_payload(message):
         usernames = session.get("usernames", {})
-        chat_messages = dao.get_messages(chat_id)
-        return [{
+        sender_id = _id(message.senderId)
+        payload = {
             "messageId": _id(message.id),
-            "chatId": chat_id,
-            "senderId": _id(message.senderId),
-            "senderUsername": usernames.get(
-                _id(message.senderId), _id(message.senderId)
-            ),
+            "chatId": _id(message.chatId),
+            "senderId": sender_id,
+            "senderUsername": usernames.get(sender_id, sender_id),
             "message": message.message,
             "timestamp": message.timestamp,
-        } for message in chat_messages]
+            "messageType": message.messageType,
+        }
+        if message.messageType == "file":
+            payload.update({
+                "fileName": message.file_name,
+                "mimeType": message.mime_type,
+                "fileSize": message.file_size,
+            })
+        return payload
+
+    def _emit_message(chat, payload):
+        for member_id in set(chat.members):
+            socketio.emit("message", payload, to=f"user:{_id(member_id)}")
+
+    def load_chat_messages(chat_id: str):
+        return [_message_payload(message) for message in dao.get_messages(_id(chat_id))]
 
     @app.route("/mychats/me", methods=["POST"])
     def my_chats():
@@ -215,6 +241,102 @@ def create_app(config=None):
             mark_chat_read(user_id, chat_id, chat_messages[-1]["messageId"])
         return jsonify({"success": True})
 
+    @app.route("/mychats/chat/<chat_id>/files", methods=["POST"])
+    def upload_chat_file(chat_id: str):
+        chat_id = _id(chat_id)
+        user_id = session.get("user")
+        chat = dao.get_chat(chat_id)
+        if (
+            user_id is None
+            or chat is None
+            or user_id not in {_id(member_id) for member_id in chat.members}
+        ):
+            return jsonify({"error": "Chat not found"}), 404
+
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            return jsonify({"error": "A file is required"}), 400
+        if upload.mimetype not in ALLOWED_FILE_MIME_TYPES:
+            return jsonify({"error": "File type not allowed"}), 415
+
+        stream = upload.stream
+        stream.seek(0, os.SEEK_END)
+        file_size = stream.tell()
+        stream.seek(0)
+        if file_size > MAX_UPLOAD_BYTES:
+            return jsonify({"error": f"File must be at most {MAX_UPLOAD_BYTES} bytes"}), 413
+        if file_size == 0:
+            return jsonify({"error": "File is empty"}), 400
+
+        caption = (request.form.get("message") or "").strip()
+        if len(caption) > 5000:
+            return jsonify({"error": "Message is too long"}), 400
+
+        file_name = secure_filename(upload.filename) or "file"
+        file_id = dao.save_file(
+            stream, file_name, upload.mimetype, file_size, chat_id, user_id
+        )
+        timestamp = datetime.now(timezone.utc).isoformat()
+        new_message = Message({
+            "id": dao.get_next_message_id(),
+            "chatId": chat_id,
+            "senderId": user_id,
+            "message": caption,
+            "timestamp": timestamp,
+            "messageType": "file",
+            "file_id": file_id,
+            "file_name": file_name,
+            "mime_type": upload.mimetype,
+            "file_size": file_size,
+        })
+        dao.add_message(new_message)
+
+        chat.lastMessage = caption or f"File: {file_name}"
+        chat.messageId = new_message.id
+        chat.updatedAt = timestamp
+        if not dao.update_chat(chat):
+            dao.delete_message(new_message.id)
+            return jsonify({"error": "Could not save the file"}), 500
+
+        out = _message_payload(new_message)
+        _emit_message(chat, out)
+        return jsonify(out), 201
+
+    @app.route("/mychats/chat/<chat_id>/files/<message_id>", methods=["GET"])
+    def download_chat_file(chat_id: str, message_id: str):
+        """ handles downloading a file from a chat message."""
+        chat_id = _id(chat_id)
+        message_id = _id(message_id)
+        user_id = session.get("user")
+        chat = dao.get_chat(chat_id)
+        if (
+            user_id is None
+            or chat is None
+            or user_id not in {_id(member_id) for member_id in chat.members}
+        ):
+            return jsonify({"error": "Chat not found"}), 404
+
+        message = dao.get_message(message_id)
+        if (
+            message is None
+            or _id(message.chatId) != chat_id
+            or message.messageType != "file"
+            or not message.file_id
+        ):
+            return jsonify({"error": "File not found"}), 404
+
+        try:
+            grid_out = dao.open_file(message.file_id)
+        except NoFile:
+            return jsonify({"error": "File not found"}), 404
+
+        return send_file(
+            io.BytesIO(grid_out.read()),
+            mimetype=message.mime_type or "application/octet-stream",
+            as_attachment=True,
+            download_name=message.file_name,
+        )
+
     @socketio.on("message")
     def handle_message(payload):
         """Handle incoming chat messages.
@@ -252,6 +374,7 @@ def create_app(config=None):
             "senderId": sender_id,
             "message": message_text,
             "timestamp": payload["timestamp"],
+            "messageType": "text",
         })
         dao.add_message(new_message)
 
@@ -262,18 +385,8 @@ def create_app(config=None):
             dao.delete_message(new_message.id)
             return
 
-        out = {
-            "messageId": _id(new_message.id),
-            "chatId": chat_id,
-            "senderId": _id(new_message.senderId),
-            "senderUsername": session.get("usernames", {}).get(
-                _id(new_message.senderId), _id(new_message.senderId)
-            ),
-            "message": new_message.message,
-            "timestamp": new_message.timestamp,
-        }
-        for member_id in set(chat.members):
-            socketio.emit("message", out, to=f"user:{_id(member_id)}")
+        out = _message_payload(new_message)
+        _emit_message(chat, out)
         return {"ok": True, "messageId": out["messageId"]}
 
     @socketio.on("typing")
