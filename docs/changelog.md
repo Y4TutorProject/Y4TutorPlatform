@@ -7,6 +7,10 @@
 - Added Markdown, formatting, local-link and strict MkDocs checks.
 - Added the documentation Actions workflow and Pages deployment configuration.
 
+## 2026-11-21
+
+- Updated messaging service documentation and file encryption guides.
+
 ## 2026-11-18
 
 - Added Spectral OpenAPI linting to the documentation checks and fixed the missing matching request and response schemas.

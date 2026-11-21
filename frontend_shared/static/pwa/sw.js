@@ -1,5 +1,5 @@
 /* Bump this version whenever any cached public asset changes. */
-const CACHE = 'tutorplatform-public-v8';
+const CACHE = 'tutorplatform-public-v9';
 const OFFLINE = '/pwa/offline.html';
 const PRECACHE = [OFFLINE, '/pwa/mobile.css', '/pwa/pwa.js', '/pwa/icon-180.png', '/pwa/icon-192.png', '/pwa/icon-512.png'];
 const STATIC_FILES = ['vendor/bootstrap.min.css', 'auth.css', 'auth.js', 'dashboard_theme.css', 'tutor_dashboard.css', 'student_dashboard.css', 'admin_dashboard.css', 'profile.css', 'messages.css', 'messaging.js', 'dashboard.js', 'modules.js', 'academic_admin.js', 'csv_upload.js', 'lms_catalog.js', 'socket.io.min.js', 'role-switcher.js'];

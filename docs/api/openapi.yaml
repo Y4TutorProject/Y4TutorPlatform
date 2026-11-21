@@ -869,6 +869,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/messaging/mychats/chat/{chat_id}/files:
+    parameters:
+    - $ref: '#/components/parameters/ChatId'
+    post:
+      tags: [Messaging]
+      summary: Upload a file to a chat
+      operationId: uploadChatFile
+      description: Stores the file in MongoDB GridFS and sends it as a file message from the session
+        user. Allowed types are PDF, DOCX and XLSX, up to 10 MB. Nginx accepts request bodies up to
+        11 MB on this route only; a larger body is rejected by Nginx with HTML.
+      security:
+      - MessagingSession: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload. Must not be empty.
+                message:
+                  type: string
+                  maxLength: 5000
+                  description: Optional caption sent with the file.
+      responses:
+        '201':
+          description: File message created and emitted to the chat members over Socket.IO.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+        '400':
+          description: No file, empty file, or caption longer than 5,000 characters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid messaging session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Chat not found, or the session user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: File exceeds 10 MB. Returned as JSON by the messaging service, or as HTML by
+            Nginx when the whole body exceeds 11 MB.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: File type is not PDF, DOCX or XLSX.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: The file could not be saved to the chat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/messaging/mychats/chat/{chat_id}/files/{message_id}:
+    parameters:
+    - $ref: '#/components/parameters/ChatId'
+    - $ref: '#/components/parameters/MessageId'
+    get:
+      tags: [Messaging]
+      summary: Download a file from a chat message
+      operationId: downloadChatFile
+      description: Returns the stored file as an attachment. Only chat members can download.
+      security:
+      - MessagingSession: []
+      responses:
+        '200':
+          description: The stored file.
+          headers:
+            Content-Disposition:
+              description: Attachment with the original file name.
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Chat or file message not found, the session user is not a member, or the stored
+            file is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /health:
     get:
       tags:
@@ -1121,6 +1224,12 @@ components:
       required: true
       schema:
         type: string
+    MessageId:
+      name: message_id
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     MatchingRequest:
       type: object
@@ -1269,10 +1378,23 @@ components:
           type: string
         message:
           type: string
+          description: Message text, or the caption for a file message.
         timestamp:
           type: string
           format: date-time
-      required: [messageId, chatId, senderId, senderUsername, message, timestamp]
+        messageType:
+          type: string
+          enum: [text, file]
+        fileName:
+          type: string
+          description: Present only when messageType is file.
+        mimeType:
+          type: string
+          description: Present only when messageType is file.
+        fileSize:
+          type: integer
+          description: Size in bytes. Present only when messageType is file.
+      required: [messageId, chatId, senderId, senderUsername, message, timestamp, messageType]
     Error:
       type: object
       properties:

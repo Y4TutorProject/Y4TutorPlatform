@@ -46,7 +46,11 @@ be decrypted without the same key.
 Message bodies are encrypted with AES-256-GCM before being saved in the MongoDB
 messages collection, using a fresh random nonce for each message. They are
 decrypted when loaded by the messaging service. The `lastMessage` preview in
-MongoDB chat documents is currently stored as plaintext.
+MongoDB chat documents is encrypted on writes and decrypted on reads as well.
+
+Uploaded files are encrypted the same way before they are written to GridFS and
+decrypted when downloaded. The stored blob is the nonce followed by the
+ciphertext. A file that fails the authentication check is not returned.
 
 ## Dashboard integration
 
@@ -132,6 +136,61 @@ signature = hmac.new(
 Send the resulting value as `X-Dashboard-Signature`. The signature must be
 calculated from the exact bytes sent over HTTP
 
+## File uploads
+
+Files are sent as a chat message through multipart form data. The sender is the
+authenticated session user, so `senderId` and `timestamp` are not form fields.
+The file is stored in MongoDB GridFS, and the message document keeps a reference
+to it.
+
+```http
+POST /mychats/chat/{chatId}/files
+Content-Type: multipart/form-data
+```
+
+Form fields:
+
+* `file`: The file to upload. Required and must not be empty.
+* `message`: Optional caption, at most 5,000 characters.
+
+Allowed types are PDF (`application/pdf`), Word (`.docx`) and Excel (`.xlsx`).
+Files are limited to 10 MB (`MAX_UPLOAD_BYTES`). Nginx allows 11 MB on this
+route only, so changing the limit means updating `client_max_body_size` in
+`nginx/default.conf` too.
+
+Successful response (`201`):
+
+```json
+{
+  "messageId": "1",
+  "chatId": "chat-uuid",
+  "senderId": "tutor-uuid",
+  "senderUsername": "tutor456",
+  "message": "Here is the worksheet",
+  "timestamp": "2026-11-02T12:00:00Z",
+  "messageType": "file",
+  "fileName": "example.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 48213
+}
+```
+
+Errors: `400` (no file, empty file, or caption too long), `404` (chat not found or
+not a member), `413` (file too large), `415` (type not allowed).
+
+## File downloads
+
+Only members of the chat can download a file. The response is the file itself
+with `Content-Disposition: attachment`. This header tells the browser to save the
+response as a file rather than display it inline.
+
+```http
+GET /mychats/chat/{chatId}/files/{messageId}
+```
+
+Returns `404` if the chat is not found, the message is not a file message in
+that chat, or the stored file is missing.
+
 ## Messaging endpoints
 
 After `/mychats/me` establishes the messaging session, use:
@@ -141,7 +200,9 @@ GET  /mychats/chat/{chatId}
 POST /mychats/chat/{chatId}/read
 ```
 
-Successful message response:
+Successful message response. Text messages have `messageType` set to `text`.
+File messages have `messageType` set to `file` and also include `fileName`,
+`mimeType` and `fileSize`:
 
 ```json
 [
@@ -151,7 +212,8 @@ Successful message response:
     "senderId": "tutor-uuid",
     "senderUsername": "tutor456",
     "message": "Hello",
-    "timestamp": "2026-11-02T12:00:00Z"
+    "timestamp": "2026-11-02T12:00:00Z",
+    "messageType": "text"
   }
 ]
 ```
