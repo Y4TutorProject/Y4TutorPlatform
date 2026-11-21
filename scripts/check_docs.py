@@ -48,6 +48,28 @@ def check_sources() -> list[str]:
     for path in [ROOT / 'mkdocs.yml', ROOT / 'docs/api/openapi.yaml',
                  ROOT / '.github/workflows/docs.yml']:
         yaml.safe_load(path.read_text())
+    errors += check_nav()
+    return errors
+
+
+def nav_files(entries) -> set[str]:
+    files = set()
+    for entry in entries:
+        value = entry if isinstance(entry, str) else next(iter(entry.values()))
+        if isinstance(value, str):
+            files.add(value)
+        else:
+            files |= nav_files(value)
+    return files
+
+
+def check_nav() -> list[str]:
+    """Every docs page must be reachable from the MkDocs nav, and every nav entry must exist."""
+    config = yaml.safe_load((ROOT / 'mkdocs.yml').read_text())
+    listed = nav_files(config['nav'])
+    pages = {path.relative_to(ROOT / 'docs').as_posix() for path in (ROOT / 'docs').rglob('*.md')}
+    errors = [f'docs/{page}: not listed in mkdocs.yml nav' for page in sorted(pages - listed)]
+    errors += [f'mkdocs.yml nav: missing page {page}' for page in sorted(listed) if not (ROOT / 'docs' / page).is_file()]
     return errors
 
 
@@ -92,13 +114,15 @@ def main() -> int:
         print('\n'.join(errors), file=sys.stderr)
         return 1
     node = shutil.which('node')
-    if node is None:
-        print('Node.js is required for Mermaid validation; install Node.js and run npm ci.', file=sys.stderr)
+    npx = shutil.which('npx')
+    if node is None or npx is None:
+        print('Node.js is required for Mermaid and OpenAPI validation; install Node.js and run npm ci.', file=sys.stderr)
         return 1
     for command in [
         [sys.executable, '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_docs_checks.py'],
         [node, '--test', 'scripts/test_mermaid.mjs'],
         [sys.executable, '-m', 'pymarkdown', '--config', '.pymarkdown.json', 'scan', '-r', 'docs', 'README.md', '.github/pull_request_template.md'],
+        [npx, '--no-install', 'spectral', 'lint', 'docs/api/openapi.yaml'],
         [sys.executable, '-m', 'mkdocs', 'build', '--strict', '--site-dir', str(args.site_dir.resolve())],
         [node, 'scripts/check_mermaid.mjs', str(args.site_dir.resolve())],
     ]:

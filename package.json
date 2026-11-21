@@ -5,6 +5,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@stoplight/spectral-cli": "^6.17.1",
     "jsdom": "26.1.0",
     "mermaid": "12.3.0"
   }
