@@ -17,7 +17,6 @@
 - Added a nav coverage check that fails when a documentation page is missing from the MkDocs navigation or a navigation entry points to a missing file.
 - Added user guides for college admin setup, student sign-up, tutor applications and lecturer reviews.
 
-
 ## 2026-11-16
 
 - Documented automatic account tutor roles from module membership, including existing approvals and service-token configuration.
