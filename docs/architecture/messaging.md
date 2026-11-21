@@ -149,8 +149,9 @@ Content-Type: multipart/form-data
 ```
 
 Form fields:
-- `file`: The file to upload. Required and must not be empty.
-- `message`: Optional caption, at most 5,000 characters.
+
+* `file`: The file to upload. Required and must not be empty.
+* `message`: Optional caption, at most 5,000 characters.
 
 Allowed types are PDF (`application/pdf`), Word (`.docx`) and Excel (`.xlsx`).
 Files are limited to 10 MB (`MAX_UPLOAD_BYTES`). Nginx allows 11 MB on this
@@ -180,8 +181,9 @@ not a member), `413` (file too large), `415` (type not allowed).
 ## File downloads
 
 Only members of the chat can download a file. The response is the file itself
-with `Content-Disposition: attachment`.
- (Content-Disposition tells the browser to treat the response as a file attachment and not display it inline)
+with `Content-Disposition: attachment`. This header tells the browser to save the
+response as a file rather than display it inline.
+
 ```http
 GET /mychats/chat/{chatId}/files/{messageId}
 ```

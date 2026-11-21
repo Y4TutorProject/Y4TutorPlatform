@@ -7,6 +7,10 @@
 - Added Markdown, formatting, local-link and strict MkDocs checks.
 - Added the documentation Actions workflow and Pages deployment configuration.
 
+## 2026-11-21
+
+- Updated messaging service documentation and file encryption guides.
+
 ## 2026-11-16
 
 - Documented automatic account tutor roles from module membership, including existing approvals and service-token configuration.
