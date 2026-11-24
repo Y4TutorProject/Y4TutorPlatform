@@ -15,6 +15,7 @@ flowchart LR
     gateway --> college[College API]
     gateway --> lms[LMS API]
     gateway -->|Socket.IO and chat API| messaging[Messaging service]
+    gateway --> sessions[Sessions API]
     dashboard -->|Session checks through gateway| gateway
     dashboard -->|Signed chat requests| messaging
     users -->|Internal module tutor role lookup| lms
@@ -30,6 +31,7 @@ flowchart LR
     lms -->|Read-only HTTPS| moodle[Moodle]
     worker -->|Read-only HTTPS| moodle
     messaging --> chatdb[(Messaging database)]
+    sessions --> sessionsdb[(Sessions database)]
 ```
 
 The diagram omits individual route prefixes for readability. See the API overview and the gateway configuration for these routes.
@@ -47,6 +49,7 @@ The diagram omits individual route prefixes for readability. See the API overvie
 | LMS API and worker | Connections, imports, scheduled syncs and module participation | LMS database, college API and Moodle |
 | Messaging | Stored chats, messages, read state and [Socket.IO](http://Socket.IO) delivery | Messaging database |
 | Matching | Standalone preference-vector ranking endpoint | Supplied vectors |
+| Sessions | Tutoring session records and signed session events for reviews and payments | Sessions database |
 
 ## Registration flow
 
@@ -81,3 +84,5 @@ The users API is the source of the signed-in account's identity. College and LMS
 The college service owns academic courses and modules. The LMS service stores imported profiles and references to academic catalogues, plus module memberships and tutor applications. It accesses college records through an authenticated internal API rather than reading the college database directly.
 
 The dashboard signs backend requests to messaging with `DASHBOARD_SHARED_SECRET`. Messaging uses its own session cookie and checks that a user belongs to the chat.
+
+The sessions service also requires requests signed with `DASHBOARD_SHARED_SECRET`. It signs the events it sends to reviews and payments with a separate `EVENTS_SHARED_SECRET`.

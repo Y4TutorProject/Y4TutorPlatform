@@ -116,6 +116,9 @@
 .preferences-empty { margin: 10px 0 0; color: #666; font-size: .85rem; }
 .message-link { align-self: flex-start; padding: 0; border: 0; background: none; color: #222; font-size: .9rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .message-link:disabled { color: #666; cursor: not-allowed; }
+.tutor-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.session-status { flex-basis: 100%; margin: 0; color: #666; font-size: .85rem; }
+.session-status:empty { display: none; }
 .tutor-state { display: grid; min-height: 250px; align-content: center; justify-items: center; text-align: center; }
 .tutor-state h3 { margin: 0 0 8px; font-size: 1rem; font-weight: 700; }
 .tutor-state p { max-width: 320px; margin: 0; color: #666; font-size: .9rem; }

@@ -1,6 +1,6 @@
 # API specs
 
-[openapi.yaml](openapi.yaml) contains the OpenAPI 3.1 reference for registration, users, colleges, dashboard routes, messaging, LMS connections and gateway health. Open it in Swagger Editor or import it into Postman.
+[openapi.yaml](openapi.yaml) contains the OpenAPI 3.1 reference for registration, users, colleges, dashboard routes, messaging, sessions, LMS connections and gateway health. Open it in Swagger Editor or import it into Postman.
 
 For POST requests, get a CSRF token from the receiving service and keep its session cookie. College and LMS requests use the users-service token and session. Local verification emails appear at <http://localhost:8025>.
 
@@ -14,3 +14,4 @@ For POST requests, get a CSRF token from the receiving service and keep its sess
 | Matching requests | [Matching system](../architecture/matching-system.md) |
 | Chat sessions and Socket.IO | [Messaging](../architecture/messaging.md) |
 | Notification records and API design | [Notifications](../architecture/notifications.md) |
+| Tutoring sessions and session events | [Sessions](../architecture/sessions.md) |
