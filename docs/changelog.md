@@ -11,6 +11,7 @@
 
 - Added the sessions service guide, API reference and decision log entry.
 - Added sessions to the architecture overview, setup secrets and backup runbook.
+- Documented the temporary session test controls on student tutor cards.
 
 ## 2026-11-21
 

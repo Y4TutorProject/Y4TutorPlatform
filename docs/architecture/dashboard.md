@@ -30,6 +30,7 @@ vectors; matching does not fetch tutor profiles itself.
 - `app.py` - creates the Flask app, configures shared templates and static files, and registers routes.
 - `users_client.py` - checks authentication and forwards session information to upstream services.
 - `messaging_client.py` - signs requests to messaging and forwards its session cookie.
+- `sessions_client.py` - signs requests to the sessions service.
 - `clean_text.py` - cleans text data used by the dashboard.
 - `process_preferences.py` - builds preference vectors and calls the matching service.
 - `routes/` - contains route blueprints, role selection and dashboard rendering helpers.
@@ -83,6 +84,7 @@ the route blueprints on the app. Dashboard routes use `@login_required` from
 - `roles.py` - selects the active student or tutor role and determines which roles can be switched.
 - `pwa.py` - public manifest, service worker and PWA assets. See the [PWA guide](../setup/pwa.md).
 - `messaging.py` - `/messages` (chat list) and `/getmessages` (opens or creates a chat with another user).
+- `sessions.py` - temporary test routes `POST /sessions` and `POST /sessions/<id>/complete|cancel`. See [Session test controls](#session-test-controls).
 
 ## Role switching and preferences
 
@@ -117,3 +119,26 @@ matching failures, the dashboard logs the failure and returns tutors without sco
 See [Matching system](matching-system.md) for the ranking algorithm and API.
 
 Shared JavaScript is stored in `frontend_shared/static/`.
+
+## Session test controls
+
+Each tutor card on the student dashboard has **Create session**, **Complete
+session** and **Cancel session** buttons beside **Message tutor**. They exist
+only to create sessions for testing the reviews and payments services.
+
+**Create session** books a session between the signed-in student and that tutor
+for the selected module. It starts tomorrow, lasts one hour and costs €25.00.
+**Complete session** and **Cancel session** work on the session the card just
+created. The dashboard checks that the signed-in user is the session's tutor or
+student before passing the request to the [sessions service](sessions.md).
+
+These controls are not the real booking flow. A student can complete their own
+session, and the time and price are fixed. Replace them when session scheduling
+(YGPT-34) is built:
+
+- `frontend_shared/static/dashboard.js` - `sessionControls()` and `postSession()`
+- `dashboard_svc/routes/sessions.py` - the test routes
+- `#tutor-results` in `student_dashboard.html` - the `data-csrf` attribute
+- `tests/test_dashboard_sessions.py`
+
+Keep `sessions_client.py`; real booking can use it to call the sessions service.

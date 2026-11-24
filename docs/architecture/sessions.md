@@ -5,6 +5,9 @@ services when a session is booked, completed or cancelled. It is deliberately
 minimal. Booking, scheduling and calendar features build on it under YGPT-34
 and YGPT-33.
 
+Until then, sessions can be created from the student dashboard with the
+[session test controls](dashboard.md#session-test-controls).
+
 From Docker containers use `http://sessions_svc:5000`. From the host machine use
 `http://localhost:5056`. Through the gateway the API is at `/api/sessions/`.
 
