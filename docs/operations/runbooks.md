@@ -67,14 +67,14 @@ After the fix, sign in again and send a message between two test accounts. Check
 
 ## Back up local data
 
-Database files are bind-mounted under the four service directories. Saved LMS credentials also need the matching `LMS_ENCRYPTION_KEY`.
+Database files are bind-mounted under the five service directories. Saved LMS credentials also need the matching `LMS_ENCRYPTION_KEY`.
 
 Stop the stack before copying database files. Choose an unused archive name:
 
 ```sh
 docker compose stop
 umask 077
-tar -czf ../tutorplatform-backup.tar.gz .env users_svc/users_db_data college_svc/college_db_data lms_svc/lms_db_data messaging_svc/messaging_db_data
+tar -czf ../tutorplatform-backup.tar.gz .env users_svc/users_db_data college_svc/college_db_data lms_svc/lms_db_data messaging_svc/messaging_db_data sessions_svc/sessions_db_data
 docker compose start
 tar -tzf ../tutorplatform-backup.tar.gz
 ```
@@ -85,7 +85,7 @@ The archive contains credentials and user data. Store it outside the repository 
 
 Test restores in an isolated Docker environment using the matching code revision and MongoDB images. The Compose file uses fixed container names, so a different project name alone does not isolate another stack on the same daemon.
 
-Keep containers stopped while restoring the four database directories and `.env`. Preserve a separate copy of the current data before replacing anything.
+Keep containers stopped while restoring the five database directories and `.env`. Preserve a separate copy of the current data before replacing anything.
 
 Start the stack and check database health, login, college ownership, academic records, LMS data and an existing chat. Record the backup date, revision and restore result.
 

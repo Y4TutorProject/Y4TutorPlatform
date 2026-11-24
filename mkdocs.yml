@@ -31,6 +31,7 @@ nav:
       - Matching system: architecture/matching-system.md
       - Messaging: architecture/messaging.md
       - Notifications: architecture/notifications.md
+      - Sessions: architecture/sessions.md
   - API and services:
       - API overview: api/README.md
       - OpenAPI specification: api/openapi.yaml

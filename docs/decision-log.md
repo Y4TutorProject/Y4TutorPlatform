@@ -181,3 +181,15 @@ These entries record implemented decisions. Reasons and alternatives were writte
 **Other options:** Store files on disk or in cloud storage like S3 or Azure Blob Storage or link to external file hosts.
 
 **Trade-off:** Increased CPU cost from encrypting and decrypting files. Browsers and clients rely on the uploaded MIME type, which is checked only against the allowlist. Files cannot be recovered without the `MESSAGING_KEY` used for encryption.
+
+## 016 - Add a separate sessions service
+
+**Date:** 2026-11-24
+
+**Decision:** Add `sessions_svc` with its own database to store tutoring sessions. A session starts as `booked` and can change once, to `completed` or `cancelled`. After each change the service sends a signed event to the reviews and payments services. If a service URL is not set, or sending fails, the event is logged and the session change still succeeds.
+
+**Why:** Reviews and payments both depend on knowing when a session is booked, completed or cancelled. One service owning sessions keeps that logic in one place, and the booking and calendar work in YGPT-34 can build on it.
+
+**Other options:** Store sessions in the users or messaging service, or have reviews and payments ask the sessions service for changes on a schedule.
+
+**Trade-off:** Another service and database to run. Events are not retried yet, so a missed event needs fixing by hand.

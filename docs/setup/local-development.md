@@ -25,13 +25,13 @@ Copy the example .env
 cp .env.example .env
 ```
 
-Generate a separate value for each of the secret values `SECRET_KEY, SESSION_SECRET, DASHBOARD_SHARED_SECRET, COLLEGE_SYNC_TOKEN, INTERNAL_API_TOKEN`. The dashboard requires `SESSION_SECRET` to save the selected role in its session.
+Generate a separate value for each of the secret values `SECRET_KEY, SESSION_SECRET, DASHBOARD_SHARED_SECRET, COLLEGE_SYNC_TOKEN, EVENTS_SHARED_SECRET`. The dashboard requires `SESSION_SECRET` to save the selected role in its session.
 
 ```sh
 python3 -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
-Add `INTERNAL_API_TOKEN` to `.env` if its not in the example. It is shared by internal users/LMS calls. Generate a LMS encryption key seperately:
+Generate a LMS encryption key seperately:
 
 ```sh
 python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'

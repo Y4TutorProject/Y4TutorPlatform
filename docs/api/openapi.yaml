@@ -19,6 +19,9 @@ tags:
 - name: Messaging
   description: Chat history and read state served by messaging_svc under /api/messaging/. Live messages
     use Socket.IO at /socket.io/ (WebSocket upgrade through Nginx), which OpenAPI cannot describe.
+- name: Sessions
+  description: Tutoring session records served by sessions_svc under /api/sessions/. Called by
+    dashboard_svc, not by browsers.
 - name: Gateway
 security: []
 paths:
@@ -544,6 +547,142 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /api/sessions/sessions:
+    post:
+      tags: [Sessions]
+      summary: Create a booked session
+      operationId: createSession
+      description: Called by dashboard_svc, not by browsers. The body must be signed with the shared
+        dashboard secret. Sends a session.booked event to payments.
+      security:
+      - DashboardSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+      responses:
+        '201':
+          description: Session created with status booked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: A field is missing, tutorId and studentId match, or price is not a whole number of
+            cents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/sessions/sessions/{session_id}:
+    get:
+      tags: [Sessions]
+      summary: Get a session
+      operationId: getSession
+      description: Called by dashboard_svc. Sign the empty request body with the shared dashboard secret.
+      security:
+      - DashboardSignature: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/sessions/sessions/{session_id}/complete:
+    post:
+      tags: [Sessions]
+      summary: Mark a session as completed
+      operationId: completeSession
+      description: Called by dashboard_svc. Only a booked session can be completed. Sends a
+        session.completed event to reviews and payments.
+      security:
+      - DashboardSignature: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Session is already completed or cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/sessions/sessions/{session_id}/cancel:
+    post:
+      tags: [Sessions]
+      summary: Cancel a session
+      operationId: cancelSession
+      description: Called by dashboard_svc. Only a booked session can be cancelled. Sends a
+        session.cancelled event to payments.
+      security:
+      - DashboardSignature: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Missing or invalid dashboard signature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Session is already completed or cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /:
     get:
       tags:
@@ -1230,7 +1369,55 @@ components:
       required: true
       schema:
         type: string
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
+    SessionCreate:
+      type: object
+      required:
+      - tutorId
+      - studentId
+      - moduleId
+      - startTime
+      - endTime
+      - price
+      properties:
+        tutorId:
+          type: string
+        studentId:
+          type: string
+          description: Must be different from tutorId.
+        moduleId:
+          type: string
+        startTime:
+          type: string
+          example: '2026-12-01T10:00:00+00:00'
+        endTime:
+          type: string
+          example: '2026-12-01T11:00:00+00:00'
+        price:
+          type: integer
+          minimum: 0
+          description: Price in cents. 2500 is €25.00.
+    Session:
+      allOf:
+      - $ref: '#/components/schemas/SessionCreate'
+      - type: object
+        required:
+        - id
+        - status
+        properties:
+          id:
+            type: string
+            format: uuid
+          status:
+            type: string
+            enum: [booked, completed, cancelled]
     MatchingRequest:
       type: object
       required:

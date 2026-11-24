@@ -7,6 +7,11 @@
 - Added Markdown, formatting, local-link and strict MkDocs checks.
 - Added the documentation Actions workflow and Pages deployment configuration.
 
+## 2026-11-24
+
+- Added the sessions service guide, API reference and decision log entry.
+- Added sessions to the architecture overview, setup secrets and backup runbook.
+
 ## 2026-11-21
 
 - Updated messaging service documentation and file encryption guides.
