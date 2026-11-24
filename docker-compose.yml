@@ -187,6 +187,8 @@ services:
         condition: service_started
       lms_svc:
         condition: service_started
+      sessions_svc:
+        condition: service_started
   matching_svc:
     container_name: matching_svc
     build:
