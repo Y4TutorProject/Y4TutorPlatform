@@ -176,6 +176,7 @@ services:
       - MESSAGING_API_URL=http://messaging_svc:5000
       - LMS_API_URL=http://lms_svc:5000
       - MATCHING_API_URL=http://matching_svc:5000
+      - SESSIONS_API_URL=http://sessions_svc:5000
       - SESSION_SECRET=${SESSION_SECRET}
     depends_on:
       users_svc:
@@ -202,6 +203,26 @@ services:
       - MONGO_COLLECTION_NAME=users
     depends_on:
       users_db:
+        condition: service_healthy
+
+  sessions_svc:
+    container_name: sessions_svc
+    build:
+      context: ./sessions_svc
+      dockerfile: Dockerfile
+    ports:
+      - "5056:5000"
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://admin:password@sessions_db:27017/?authSource=admin
+      - MONGO_DB_NAME=sessions_db
+      - MONGO_COLLECTION_NAME=sessions
+      - DASHBOARD_SHARED_SECRET=${DASHBOARD_SHARED_SECRET}
+      - EVENTS_SHARED_SECRET=${EVENTS_SHARED_SECRET:-}
+      - REVIEWS_API_URL=${REVIEWS_API_URL:-}
+      - PAYMENTS_API_URL=${PAYMENTS_API_URL:-}
+    depends_on:
+      sessions_db:
         condition: service_healthy
 
 # DATABASES
@@ -269,6 +290,22 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - ./college_svc/college_db_data:/data/db
+
+  sessions_db:
+    container_name: sessions_db
+    image: mongo:latest
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "27021:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./sessions_svc/sessions_db_data:/data/db
 
 # TOOLS
 
