@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Create a card element for a tutor with their details and messaging option
-    function tutorCard(tutor) {
+    function tutorCard(tutor, moduleId) {
         const card = element("article", "tutor-card");
         const header = element("div", "tutor-card-header");
         const name = tutor.username || "Tutor";
@@ -70,8 +70,66 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         message.disabled = false;
         message.title = "";
-        card.append(header, preferences, message);
+
+        const actions = element("div", "tutor-card-actions");
+        actions.append(message, ...sessionControls(tutor, moduleId));
+        card.append(header, preferences, actions);
         return card;
+    }
+
+    // Send a POST to the dashboard's sessions routes with the page's CSRF token
+    async function postSession(path, body) {
+        const response = await fetch(`/api/dashboard${path}`, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": results.dataset.csrf },
+            body: JSON.stringify(body || {})
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed with status ${response.status}`);
+        return data;
+    }
+
+    // Create, complete and cancel session buttons for testing reviews and payments
+    function sessionControls(tutor, moduleId) {
+        const create = element("button", "message-link", "Create session");
+        const complete = element("button", "message-link", "Complete session");
+        const cancel = element("button", "message-link", "Cancel session");
+        const status = element("p", "session-status");
+        status.setAttribute("role", "status");
+        let session = null;
+
+        [create, complete, cancel].forEach(button => { button.type = "button"; });
+
+        function render() {
+            const booked = session && session.status === "booked";
+            create.disabled = booked;
+            complete.disabled = !booked;
+            cancel.disabled = !booked;
+            status.textContent = session ? `Session ${session.status}` : "";
+        }
+
+        async function run(button, path, body) {
+            button.disabled = true;
+            try {
+                session = await postSession(path, body);
+            } catch (error) {
+                status.textContent = error.message;
+                console.error("Session request failed:", error);
+                return;
+            }
+            render();
+        }
+
+        create.addEventListener("click", () =>
+            run(create, "/sessions", { tutor_id: tutor.id, module_id: moduleId }));
+        complete.addEventListener("click", () =>
+            run(complete, `/sessions/${encodeURIComponent(session.id)}/complete`));
+        cancel.addEventListener("click", () =>
+            run(cancel, `/sessions/${encodeURIComponent(session.id)}/cancel`));
+
+        render();
+        return [create, complete, cancel, status];
     }
 
     // Add event listeners to module buttons to fetch and display tutors for the selected module
@@ -95,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     showState("No tutors found", "There are no tutors available for this module yet.");
                 } else {
                     const grid = element("div", "tutor-grid");
-                    tutors.forEach(tutor => grid.append(tutorCard(tutor)));
+                    tutors.forEach(tutor => grid.append(tutorCard(tutor, button.dataset.module)));
                     results.replaceChildren(grid);
                 }
             } catch (error) {
